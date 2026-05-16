@@ -6,8 +6,8 @@ authors:
   - family-names: DiMurro
     given-names: Christopher
 date-released: "2026-05-16"
-repository-code: "https://github.com/cdimurro/quanitity-and-quality"
-url: "https://cdimurro.github.io/quanitity-and-quality/"
+repository-code: "https://github.com/cdimurro/quantity-and-quality"
+url: "https://github.com/cdimurro/quantity-and-quality"
 preferred-citation:
   type: article
   title: "Quantity and Quality: A Standard Reporting Framework for Energy Systems"
@@ -15,4 +15,3 @@ preferred-citation:
     - family-names: DiMurro
       given-names: Christopher
   year: 2026
-

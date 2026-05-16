@@ -24,9 +24,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://cdimurro.github.io/quanitity-and-quality/"
-Repository = "https://github.com/cdimurro/quanitity-and-quality"
-Paper = "https://cdimurro.github.io/quanitity-and-quality/paper/quantity-and-quality-standard-reporting-framework.pdf"
+Homepage = "https://github.com/cdimurro/quantity-and-quality"
+Repository = "https://github.com/cdimurro/quantity-and-quality"
+Paper = "https://github.com/cdimurro/quantity-and-quality/blob/main/paper/quantity-and-quality-standard-reporting-framework.pdf"
 
 [project.scripts]
 quantity-quality = "quantity_quality.cli:main"
@@ -43,4 +43,3 @@ quantity_quality = ["data/*.json"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
-
