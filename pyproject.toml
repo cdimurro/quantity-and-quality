@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "quantity-quality"
+version = "0.1.0"
+description = "Tools for reporting energy quantity together with Exergy Factor."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [
+  { name = "Christopher DiMurro", email = "chrisdimurro@gmail.com" }
+]
+keywords = ["energy", "exergy", "thermodynamics", "energy reporting", "measurement"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://cdimurro.github.io/quanitity-and-quality/"
+Repository = "https://github.com/cdimurro/quanitity-and-quality"
+Paper = "https://cdimurro.github.io/quanitity-and-quality/paper/quantity-and-quality-standard-reporting-framework.pdf"
+
+[project.scripts]
+quantity-quality = "quantity_quality.cli:main"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+quantity_quality = ["data/*.json"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
+

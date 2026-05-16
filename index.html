@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Quantity and Quality | Energy Reporting Framework</title>
+    <meta
+      name="description"
+      content="A companion site for reporting energy quantity together with Exergy Factor so energy systems can track useful work potential."
+    />
+    <link rel="stylesheet" href="assets/styles.css" />
+  </head>
+  <body>
+    <header class="site-header">
+      <a class="brand" href="#top" aria-label="Quantity and Quality home">
+        <span class="brand-mark"></span>
+        <span>Quantity and Quality</span>
+      </a>
+      <nav aria-label="Primary navigation">
+        <a href="#adopt">Adopt</a>
+        <a href="#examples">Examples</a>
+        <a href="#library">Python</a>
+        <a href="paper/quantity-and-quality-standard-reporting-framework.pdf">Paper</a>
+      </nav>
+    </header>
+
+    <main id="top">
+      <section class="intro">
+        <div class="intro-copy">
+          <p class="eyebrow">A standard reporting layer for energy systems</p>
+          <h1>Energy reports should say how much energy exists and what that energy can still do.</h1>
+          <p class="lead">
+            A megawatt-hour of electricity, a megawatt-hour of 80 C heat, and a megawatt-hour of 40 C heat are not equally useful. The paper proposes a simple add-on to existing reporting: pair every energy quantity or power rate with an Exergy Factor.
+          </p>
+          <div class="formula-strip" aria-label="Core reporting format">
+            <span>(E, f_X)</span>
+            <span>(P, f_X)</span>
+            <span>X_A = f_X E</span>
+          </div>
+        </div>
+        <div class="quality-panel" aria-label="Example Exergy Factor ladder">
+          <div class="panel-title">Work-potential ladder</div>
+          <div class="ladder" id="quality-ladder"></div>
+        </div>
+      </section>
+
+      <section class="section-band">
+        <div class="content-grid two">
+          <article>
+            <p class="eyebrow">The implication</p>
+            <h2>Quantity tells you scale. Quality tells you fit.</h2>
+            <p>
+              Conventional energy accounting answers the first-law question: how many joules, kilowatt-hours, barrels, or megawatt-hours moved? That is necessary, but incomplete. Energy systems also need the second-law question: how much useful work potential did that stream carry at the point where it mattered?
+            </p>
+            <p>
+              Exergy Factor makes that second question operational. It can sit beside existing MWh, MW, emissions, cost, and life-cycle fields without replacing them.
+            </p>
+          </article>
+          <article class="principles">
+            <h2>What changes in practice</h2>
+            <ul>
+              <li>Heat recovery can rank streams by temperature and sink, not heat quantity alone.</li>
+              <li>District energy can publish both MWh and MWh_ex delivered.</li>
+              <li>Fuel comparisons can stop mixing LHV, HHV, and chemical-exergy claims.</li>
+              <li>Storage can be compared by service grade, not just nameplate MWh.</li>
+              <li>Audits can report savings as both energy saved and work potential avoided.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section id="adopt" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Adoption pattern</p>
+          <h2>Add one field and three pieces of metadata.</h2>
+        </div>
+        <div class="steps">
+          <div>
+            <span class="step-number">1</span>
+            <h3>Keep the normal energy number</h3>
+            <p>Use the same MWh, kWh, MW, GJ, therm, or fuel-basis unit already used in the project.</p>
+          </div>
+          <div>
+            <span class="step-number">2</span>
+            <h3>Add Exergy Factor</h3>
+            <p>Attach accessible exergy per unit energy, reported as MWh_ex/MWh, MW_ex/MW, or J_ex/J.</p>
+          </div>
+          <div>
+            <span class="step-number">3</span>
+            <h3>Declare the context</h3>
+            <p>Record the reference sink, reporting boundary, and operating basis so the factor is interpretable.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="section-band">
+        <div class="calculator">
+          <div>
+            <p class="eyebrow">Thermal example</p>
+            <h2>Compute a heat-stream Exergy Factor.</h2>
+            <p>
+              For a heat source and sink, the thermal Exergy Factor is the Carnot factor. This turns temperature measurements that many facilities already collect into a reporting-quality field.
+            </p>
+          </div>
+          <form id="thermal-calculator">
+            <label>
+              Source temperature C
+              <input id="source-c" type="number" value="80" step="0.1" />
+            </label>
+            <label>
+              Sink temperature C
+              <input id="sink-c" type="number" value="20" step="0.1" />
+            </label>
+            <label>
+              Quantity
+              <input id="quantity" type="number" value="1" step="0.01" min="0" />
+            </label>
+            <label>
+              Unit
+              <input id="unit" type="text" value="MWh" />
+            </label>
+            <output id="calculator-output" aria-live="polite"></output>
+          </form>
+        </div>
+      </section>
+
+      <section id="examples" class="section">
+        <div class="section-heading">
+          <p class="eyebrow">Reference database</p>
+          <h2>Starter examples for common reporting cases.</h2>
+          <p>
+            These examples are not a substitute for project-specific engineering. They are intended to make the reporting pattern concrete, reviewable, and easy to extend.
+          </p>
+        </div>
+        <div class="toolbar">
+          <label>
+            Filter
+            <input id="example-filter" type="search" placeholder="heat, storage, hydrogen..." />
+          </label>
+          <a class="button" href="data/reference_examples.csv">CSV</a>
+          <a class="button" href="data/reference_examples.json">JSON</a>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Example</th>
+                <th>Category</th>
+                <th>Basis</th>
+                <th>f_X</th>
+                <th>Reference</th>
+                <th>Use</th>
+              </tr>
+            </thead>
+            <tbody id="examples-body"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="library" class="section-band">
+        <div class="content-grid two">
+          <article>
+            <p class="eyebrow">Python library</p>
+            <h2>Drop the reporting format into existing data pipelines.</h2>
+            <p>
+              The package provides small dataclasses, thermal and chemical factor helpers, weighted aggregation, JSON-ready records, and access to the bundled reference examples.
+            </p>
+            <pre><code>python -m pip install -e .
+
+quantity-quality thermal --source-c 80 --sink-c 20 --quantity 1 --unit MWh</code></pre>
+          </article>
+          <article>
+            <h2>Minimal Python use</h2>
+            <pre><code>from quantity_quality import EnergyReport, ReferenceContext
+from quantity_quality import thermal_exergy_factor_c
+
+context = ReferenceContext(
+    reference="20 C sink",
+    boundary="district heating delivery",
+    operating_basis="Carnot heat factor"
+)
+
+f_x = thermal_exergy_factor_c(80, 20)
+report = EnergyReport(1.0, "MWh", f_x, context)
+print(report.as_dict())</code></pre>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Christopher DiMurro, 2026</span>
+      <span>Report quantity plus Exergy Factor: (E, f_X) and (P, f_X).</span>
+    </footer>
+
+    <script src="assets/app.js"></script>
+  </body>
+</html>
+
