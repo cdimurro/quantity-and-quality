@@ -1,12 +1,12 @@
 # Quantity and Quality
 
-Companion repository for Christopher DiMurro's paper, **Quantity and Quality: A Standard Reporting Framework for Energy Systems**.
+Companion repository for the paper, **Quantity and Quality: A Standard Reporting Framework for Energy Systems**.
 
-This repo is the public home for supplemental material, adoption examples, a starter reference database, and a Python library for reporting energy quantity with energy quality.
+This repo is the public home for supplemental material, reference example database, and a Python library to assist with the reporting adoption of energy quantity with an additional quality factor attached to it.
 
 ## The new reporting notation
 
-Do not report energy quantity alone. The new everyday notation should look like this:
+Stop reporting energy quantities as just one number where possible. This paper proposes the new standard notation should look like this:
 
 ```text
 1 MWh, f_X = 0.73
@@ -20,16 +20,14 @@ That means "one megawatt-hour of energy carrying 0.73 megawatt-hours of accessib
 4.2 MW, f_X = 0.18
 ```
 
-Public examples should usually use a factor like `0.73` instead of `1.00` so readers immediately see that `f_X` is a quality field, not just another way to repeat the energy quantity.
-
-The formal version from the paper is:
+The scientific version from the paper is written like this:
 
 ```text
 Energy quantity: (E, f_X)
 Power rate:      (P, f_X)
 ```
 
-`E` or `P` says how much energy is present or moving. `f_X` says how much accessible work potential that energy carries at a declared reporting boundary.
+`E` or `P` says how much energy is present or moving. `f_X` says how much **accessible work potential** that energy carries at a declared reporting boundary.
 
 ## What is in this repository
 
