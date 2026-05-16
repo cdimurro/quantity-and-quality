@@ -1,0 +1,6 @@
+label,quantity,unit,reference_id,reference,boundary,operating_basis
+Grid electricity delivery,1,MWh,electricity-delivered,electrical delivery boundary,site electrical meter,electrical work at delivery boundary
+80 C district heat,1,MWh_th,heat-80c-standard,20 C thermal sink,district heating delivery,Carnot factor from source and sink temperature
+Methane on LHV basis,1,MWh_LHV,methane-lhv,declared LHV energy basis,fuel inventory meter,chemical exergy divided by LHV
+Cooling service,1,MWh_cooling,cooling-7c-30c-ambient,30 C ambient heat-rejection sink,chilled water delivery,minimum work potential per unit cooling service
+

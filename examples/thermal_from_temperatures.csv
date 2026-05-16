@@ -1,0 +1,5 @@
+label,quantity,unit,source_c,sink_c,reference,boundary,operating_basis
+Low-temperature waste heat,1,MWh_th,40,20,20 C thermal sink,waste heat source stream,Carnot factor from measured source and sink
+District heat with return sink,1,MWh_th,80,50,50 C return-line sink,district heating delivery,Carnot factor using measured return temperature
+Process steam,1,MWh_th,150,20,20 C thermal sink,process heat delivery,Carnot factor from measured source and sink
+

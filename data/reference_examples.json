@@ -45,6 +45,21 @@
     "source": "DiMurro 2026 framework convention"
   },
   {
+    "id": "solar-radiation-standard",
+    "name": "Solar radiation resource at 25 C reference",
+    "category": "radiative",
+    "carrier": "photon radiation",
+    "basis": "Petela radiation Exergy Factor, reference=25 C",
+    "quantity_unit": "MWh_solar",
+    "exergy_factor": 0.931,
+    "factor_unit": "MWh_ex/MWh",
+    "reference": "25 C reference environment",
+    "boundary": "solar resource or collector aperture",
+    "calculation": "1 - (4/3)(T0/Tsun) + (1/3)(T0/Tsun)^4",
+    "adoption_note": "Use when reporting incident solar resource quality before PV or thermal conversion losses.",
+    "source": "Petela radiation factor, mirrored from breakthrough-engine quality_factors"
+  },
+  {
     "id": "battery-discharge",
     "name": "Battery discharge electricity",
     "category": "storage",
@@ -300,6 +315,21 @@
     "source": "computed from DiMurro 2026 thermal convention"
   },
   {
+    "id": "cooling-7c-30c-ambient",
+    "name": "7 C cooling service against 30 C ambient",
+    "category": "cooling",
+    "carrier": "cold thermal service",
+    "basis": "minimum work potential per unit cooling service, cold=7 C, ambient=30 C",
+    "quantity_unit": "MWh_cooling",
+    "exergy_factor": 0.082,
+    "factor_unit": "MWh_ex/MWh",
+    "reference": "30 C ambient heat-rejection sink",
+    "boundary": "cooling service delivery boundary",
+    "calculation": "303.15 / 280.15 - 1",
+    "adoption_note": "Use for chilled water, refrigeration, cold storage, and district cooling demand records.",
+    "source": "computed from DiMurro 2026 cooling-service convention"
+  },
+  {
     "id": "methane-lhv",
     "name": "Methane on LHV basis",
     "category": "chemical",
@@ -420,4 +450,3 @@
     "source": "DiMurro 2026 measurement protocol"
   }
 ]
-

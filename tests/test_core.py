@@ -3,11 +3,17 @@ import math
 import pytest
 
 from quantity_quality import (
+    COMMON_NOTATION_EXAMPLES,
     EnergyReport,
     ReferenceContext,
+    annotate_record,
     chemical_exergy_factor,
+    exergy_unit,
+    format_energy_notation,
     get_reference_example,
     load_reference_examples,
+    parse_energy_notation,
+    petela_exergy_factor,
     thermal_exergy_factor_c,
     weighted_exergy_factor,
 )
@@ -36,6 +42,8 @@ def test_energy_report_accessible_exergy():
     report = EnergyReport(1.0, "MWh", thermal_exergy_factor_c(80, 20), context)
     assert report.accessible_exergy == pytest.approx(0.170, abs=0.001)
     assert report.as_dict()["accessible_exergy_unit"] == "MWh_ex"
+    assert exergy_unit("MWh_th") == "MWh_ex"
+    assert exergy_unit("MWh_LHV") == "MWh_ex"
 
 
 def test_chemical_factor_uses_declared_basis():
@@ -61,3 +69,50 @@ def test_invalid_thermal_factor_rejects_reversed_temperatures():
     with pytest.raises(ValueError):
         thermal_exergy_factor_c(20, 80)
 
+
+def test_adoption_notation_format_and_parse():
+    notation = format_energy_notation(1, "MWh", 0.73)
+    assert notation == "1 MWh, f_X = 0.73"
+    parsed = parse_energy_notation(notation)
+    assert parsed.quantity == 1
+    assert parsed.unit == "MWh"
+    assert parsed.exergy_factor == pytest.approx(0.73)
+
+
+def test_petela_solar_factor():
+    assert petela_exergy_factor() == pytest.approx(0.931, abs=0.001)
+
+
+def test_common_examples_have_20_records():
+    assert len(COMMON_NOTATION_EXAMPLES) == 20
+    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "1 MWh, f_X = 1"
+
+
+def test_annotate_record_from_reference_id():
+    annotated = annotate_record(
+        {
+            "quantity": "1",
+            "unit": "MWh_th",
+            "reference_id": "heat-80c-standard",
+            "reference": "20 C sink",
+            "boundary": "district heating delivery",
+        }
+    )
+    assert annotated.ok
+    assert annotated.record["notation"] == "1 MWh_th, f_X = 0.17"
+    assert annotated.record["accessible_exergy"] == pytest.approx(0.17)
+    assert annotated.record["accessible_exergy_unit"] == "MWh_ex"
+    assert annotated.record["operating_basis"] == "Carnot factor, source=80 C, sink=20 C"
+
+
+def test_annotate_record_from_temperatures():
+    annotated = annotate_record(
+        {
+            "quantity": 1,
+            "unit": "MWh_th",
+            "source_c": 80,
+            "sink_c": 20,
+        }
+    )
+    assert annotated.ok
+    assert annotated.record["exergy_factor"] == pytest.approx(0.170, abs=0.001)

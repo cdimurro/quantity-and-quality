@@ -2,14 +2,36 @@
 
 from .core import (
     EnergyReport,
+    ParsedNotation,
     PowerReport,
     ReferenceContext,
+    ReferenceEnvironment,
     accessible_exergy,
     chemical_exergy_factor,
     cooling_exergy_factor_c,
+    exergy_unit,
+    format_energy_notation,
+    format_exergy_factor,
+    parse_energy_notation,
+    petela_exergy_factor,
+    report_from_notation,
+    solar_exergy_rate,
     thermal_exergy_factor,
     thermal_exergy_factor_c,
     weighted_exergy_factor,
+)
+from .adoption import (
+    ADOPTION_FIELDS,
+    COMMON_NOTATION_EXAMPLES,
+    STANDARD_INTEGRATION_POINTS,
+)
+from .records import (
+    REPORT_SCHEMA_VERSION,
+    AnnotatedRecord,
+    ValidationIssue,
+    annotate_record,
+    annotate_records,
+    validation_summary,
 )
 from .reference import (
     filter_reference_examples,
@@ -18,17 +40,34 @@ from .reference import (
 )
 
 __all__ = [
+    "ADOPTION_FIELDS",
+    "COMMON_NOTATION_EXAMPLES",
     "EnergyReport",
+    "ParsedNotation",
     "PowerReport",
+    "REPORT_SCHEMA_VERSION",
     "ReferenceContext",
+    "ReferenceEnvironment",
+    "STANDARD_INTEGRATION_POINTS",
+    "AnnotatedRecord",
+    "ValidationIssue",
     "accessible_exergy",
+    "annotate_record",
+    "annotate_records",
     "chemical_exergy_factor",
     "cooling_exergy_factor_c",
+    "exergy_unit",
     "filter_reference_examples",
+    "format_energy_notation",
+    "format_exergy_factor",
     "get_reference_example",
     "load_reference_examples",
+    "parse_energy_notation",
+    "petela_exergy_factor",
+    "report_from_notation",
+    "solar_exergy_rate",
     "thermal_exergy_factor",
     "thermal_exergy_factor_c",
+    "validation_summary",
     "weighted_exergy_factor",
 ]
-

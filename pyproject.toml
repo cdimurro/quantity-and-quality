@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quantity-quality"
-version = "0.1.0"
-description = "Tools for reporting energy quantity together with Exergy Factor."
+version = "0.2.0"
+description = "Adoption tools for reporting energy quantity together with Exergy Factor."
 readme = "README.md"
 requires-python = ">=3.9"
 license = { text = "MIT" }

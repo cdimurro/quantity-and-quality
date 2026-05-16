@@ -1,4 +1,9 @@
-from quantity_quality import EnergyReport, ReferenceContext, thermal_exergy_factor_c
+from quantity_quality import (
+    EnergyReport,
+    ReferenceContext,
+    format_energy_notation,
+    thermal_exergy_factor_c,
+)
 
 
 context = ReferenceContext(
@@ -17,4 +22,4 @@ report = EnergyReport(
 )
 
 print(report.as_dict())
-
+print(format_energy_notation(report.quantity, report.unit, report.exergy_factor))

@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import math
+import re
 from dataclasses import asdict, dataclass
 from typing import Iterable, Mapping, Optional, Tuple, Union
 
 
 Number = Union[int, float]
+T_SUN_K = 5778.0
+STANDARD_AMBIENT_K = 298.15
 
 
 @dataclass(frozen=True)
@@ -19,6 +22,24 @@ class ReferenceContext:
 
     def as_dict(self) -> dict:
         return {key: value for key, value in asdict(self).items() if value is not None}
+
+
+@dataclass(frozen=True)
+class ReferenceEnvironment:
+    """Standard reference environment metadata for comparable reporting."""
+
+    id: str = "standard_ambient_25c_101325pa"
+    temperature_k: float = STANDARD_AMBIENT_K
+    pressure_pa: float = 101325.0
+    source: str = "standard ambient reporting convention"
+    is_site_specific: bool = False
+
+    def __post_init__(self) -> None:
+        _require_positive(self.temperature_k, "temperature_k")
+        _require_positive(self.pressure_pa, "pressure_pa")
+
+    def as_dict(self) -> dict:
+        return asdict(self)
 
 
 @dataclass(frozen=True)
@@ -43,7 +64,7 @@ class EnergyReport:
 
     @property
     def accessible_exergy_unit(self) -> str:
-        return f"{self.unit}_ex"
+        return exergy_unit(self.unit)
 
     def as_dict(self) -> dict:
         return {
@@ -52,6 +73,7 @@ class EnergyReport:
             "quantity": self.quantity,
             "unit": self.unit,
             "exergy_factor": self.exergy_factor,
+            "notation": format_energy_notation(self.quantity, self.unit, self.exergy_factor),
             "accessible_exergy": self.accessible_exergy,
             "accessible_exergy_unit": self.accessible_exergy_unit,
             "context": self.context.as_dict(),
@@ -80,7 +102,7 @@ class PowerReport:
 
     @property
     def accessible_exergy_rate_unit(self) -> str:
-        return f"{self.unit}_ex"
+        return exergy_unit(self.unit)
 
     def as_dict(self) -> dict:
         return {
@@ -89,10 +111,20 @@ class PowerReport:
             "power": self.power,
             "unit": self.unit,
             "exergy_factor": self.exergy_factor,
+            "notation": format_energy_notation(self.power, self.unit, self.exergy_factor),
             "accessible_exergy_rate": self.accessible_exergy_rate,
             "accessible_exergy_rate_unit": self.accessible_exergy_rate_unit,
             "context": self.context.as_dict(),
         }
+
+
+@dataclass(frozen=True)
+class ParsedNotation:
+    """Parsed representation of strings like `1 MWh, f_X = 0.73`."""
+
+    quantity: float
+    unit: str
+    exergy_factor: float
 
 
 def accessible_exergy(quantity_or_power: Number, exergy_factor: Number) -> float:
@@ -103,6 +135,96 @@ def accessible_exergy(quantity_or_power: Number, exergy_factor: Number) -> float
     _require_nonnegative(quantity, "quantity_or_power")
     _require_valid_factor(factor)
     return quantity * factor
+
+
+def format_exergy_factor(exergy_factor: Number, precision: int = 3) -> str:
+    """Format an Exergy Factor for public notation."""
+
+    factor = float(exergy_factor)
+    _require_valid_factor(factor)
+    return _format_number(factor, precision=precision)
+
+
+def format_energy_notation(
+    quantity_or_power: Number,
+    unit: str,
+    exergy_factor: Number,
+    *,
+    precision: int = 3,
+) -> str:
+    """Return the adoption notation, for example `1 MWh, f_X = 0.73`."""
+
+    quantity = float(quantity_or_power)
+    _require_nonnegative(quantity, "quantity_or_power")
+    if not unit:
+        raise ValueError("unit is required")
+    return (
+        f"{_format_number(quantity, precision=precision)} {unit}, "
+        f"f_X = {format_exergy_factor(exergy_factor, precision=precision)}"
+    )
+
+
+def exergy_unit(unit: str) -> str:
+    """Return a readable exergy unit from an energy or power unit.
+
+    Examples:
+    - MWh_th -> MWh_ex
+    - MWh_LHV -> MWh_ex
+    - MW -> MW_ex
+    - GJ -> GJ_ex
+    """
+
+    if not unit:
+        raise ValueError("unit is required")
+    base = unit.split("_", 1)[0]
+    return f"{base}_ex"
+
+
+_NOTATION_RE = re.compile(
+    r"^\s*(?P<quantity>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s+"
+    r"(?P<unit>[^,]+?)\s*,\s*"
+    r"(?:f_X|fx|fX)\s*=\s*"
+    r"(?P<factor>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$",
+    re.IGNORECASE,
+)
+
+
+def parse_energy_notation(text: str) -> ParsedNotation:
+    """Parse strings like `1 MWh, f_X = 0.73`."""
+
+    match = _NOTATION_RE.match(text)
+    if not match:
+        raise ValueError("expected notation like '1 MWh, f_X = 0.73'")
+    quantity = float(match.group("quantity"))
+    unit = match.group("unit").strip()
+    factor = float(match.group("factor"))
+    _require_nonnegative(quantity, "quantity")
+    _require_valid_factor(factor)
+    if not unit:
+        raise ValueError("unit is required")
+    return ParsedNotation(quantity=quantity, unit=unit, exergy_factor=factor)
+
+
+def report_from_notation(
+    text: str,
+    *,
+    context: Optional[ReferenceContext] = None,
+    label: Optional[str] = None,
+) -> EnergyReport:
+    """Build an EnergyReport from `1 MWh, f_X = 0.73` style notation."""
+
+    parsed = parse_energy_notation(text)
+    return EnergyReport(
+        quantity=parsed.quantity,
+        unit=parsed.unit,
+        exergy_factor=parsed.exergy_factor,
+        context=context or ReferenceContext(
+            reference="declared by reporter",
+            boundary="declared by reporter",
+            operating_basis="provided Exergy Factor",
+        ),
+        label=label,
+    )
 
 
 def thermal_exergy_factor(source_k: Number, sink_k: Number) -> float:
@@ -141,6 +263,29 @@ def cooling_exergy_factor_c(cold_service_c: Number, ambient_sink_c: Number) -> f
     if ambient <= cold:
         raise ValueError("ambient sink must be warmer than the cold service")
     return ambient / cold - 1.0
+
+
+def petela_exergy_factor(reference_k: Number = STANDARD_AMBIENT_K) -> float:
+    """Petela Exergy Factor for solar radiation against a reference environment."""
+
+    reference = float(reference_k)
+    _require_positive(reference, "reference_k")
+    ratio = reference / T_SUN_K
+    return 1.0 - (4.0 / 3.0) * ratio + (1.0 / 3.0) * ratio**4
+
+
+def solar_exergy_rate(
+    irradiance_w_m2: Number,
+    area_m2: Number,
+    reference_k: Number = STANDARD_AMBIENT_K,
+) -> float:
+    """Solar exergy input rate in W_ex from irradiance and area."""
+
+    irradiance = float(irradiance_w_m2)
+    area = float(area_m2)
+    _require_nonnegative(irradiance, "irradiance_w_m2")
+    _require_nonnegative(area, "area_m2")
+    return irradiance * area * petela_exergy_factor(reference_k)
 
 
 def chemical_exergy_factor(chemical_exergy: Number, energy_basis: Number) -> float:
@@ -218,3 +363,7 @@ def _require_valid_factor(value: Number) -> None:
     if not math.isfinite(value) or value < 0:
         raise ValueError("exergy_factor must be a finite nonnegative number")
 
+
+def _format_number(value: float, precision: int = 3) -> str:
+    text = f"{value:.{precision}f}"
+    return text.rstrip("0").rstrip(".")
