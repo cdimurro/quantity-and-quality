@@ -55,7 +55,7 @@ function updateCalculator() {
   try {
     const factor = thermalFactor(sourceC, sinkC);
     const exergy = quantity * factor;
-    output.textContent = `( ${quantity} ${unit}, f_X = ${formatFactor(factor)} )\naccessible exergy = ${formatFactor(exergy)} ${unit}_ex`;
+    output.textContent = `${quantity} ${unit}, f_X = ${formatFactor(factor)}\naccessible exergy = ${formatFactor(exergy)} ${unit}_ex`;
   } catch (error) {
     output.textContent = error.message;
   }
@@ -111,4 +111,3 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 });
-

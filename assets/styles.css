@@ -139,6 +139,11 @@ h3 {
   letter-spacing: 0;
 }
 
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.94em;
+}
+
 .lead {
   max-width: 760px;
   margin: 24px 0 0;
@@ -437,4 +442,3 @@ pre {
     flex-direction: column;
   }
 }
-

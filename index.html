@@ -6,7 +6,7 @@
     <title>Quantity and Quality | Energy Reporting Framework</title>
     <meta
       name="description"
-      content="A companion site for reporting energy quantity together with Exergy Factor so energy systems can track useful work potential."
+      content="A companion site for reporting energy as 1 MWh, f_X = 0.73 so energy systems can track useful work potential."
     />
     <link rel="stylesheet" href="assets/styles.css" />
   </head>
@@ -28,14 +28,14 @@
       <section class="intro">
         <div class="intro-copy">
           <p class="eyebrow">A standard reporting layer for energy systems</p>
-          <h1>Energy reports should say how much energy exists and what that energy can still do.</h1>
+          <h1>Write energy as: 1 MWh, f_X = 0.73.</h1>
           <p class="lead">
-            A megawatt-hour of electricity, a megawatt-hour of 80 C heat, and a megawatt-hour of 40 C heat are not equally useful. The paper proposes a simple add-on to existing reporting: pair every energy quantity or power rate with an Exergy Factor.
+            That is the adoption-friendly version of the framework: keep the familiar energy quantity, then add one quality number. A megawatt-hour of electricity, a megawatt-hour of 80 C heat, and a megawatt-hour of 40 C heat are not equally useful, so every reported energy quantity should carry an Exergy Factor.
           </p>
           <div class="formula-strip" aria-label="Core reporting format">
-            <span>(E, f_X)</span>
-            <span>(P, f_X)</span>
-            <span>X_A = f_X E</span>
+            <span>1 MWh, f_X = 0.73</span>
+            <span>1 kWh, f_X = 0.73</span>
+            <span>accessible = 0.73 MWh_ex</span>
           </div>
         </div>
         <div class="quality-panel" aria-label="Example Exergy Factor ladder">
@@ -48,12 +48,12 @@
         <div class="content-grid two">
           <article>
             <p class="eyebrow">The implication</p>
-            <h2>Quantity tells you scale. Quality tells you fit.</h2>
+            <h2>Quantity tells you scale. f_X tells you fit.</h2>
             <p>
               Conventional energy accounting answers the first-law question: how many joules, kilowatt-hours, barrels, or megawatt-hours moved? That is necessary, but incomplete. Energy systems also need the second-law question: how much useful work potential did that stream carry at the point where it mattered?
             </p>
             <p>
-              Exergy Factor makes that second question operational. It can sit beside existing MWh, MW, emissions, cost, and life-cycle fields without replacing them.
+              Exergy Factor makes that second question operational. The notation is intentionally plain: write <code>1 MWh, f_X = 0.73</code> instead of reporting <code>1 MWh</code> alone. Examples use values below 1 so readers immediately see that energy quantity and useful work potential are different.
             </p>
           </article>
           <article class="principles">
@@ -72,18 +72,18 @@
       <section id="adopt" class="section">
         <div class="section-heading">
           <p class="eyebrow">Adoption pattern</p>
-          <h2>Add one field and three pieces of metadata.</h2>
+          <h2>Make <code>quantity, f_X = value</code> the default energy record.</h2>
         </div>
         <div class="steps">
           <div>
             <span class="step-number">1</span>
-            <h3>Keep the normal energy number</h3>
+            <h3>Start with the normal energy number</h3>
             <p>Use the same MWh, kWh, MW, GJ, therm, or fuel-basis unit already used in the project.</p>
           </div>
           <div>
             <span class="step-number">2</span>
-            <h3>Add Exergy Factor</h3>
-            <p>Attach accessible exergy per unit energy, reported as MWh_ex/MWh, MW_ex/MW, or J_ex/J.</p>
+            <h3>Add <code>f_X = ...</code></h3>
+            <p>Attach accessible exergy per unit energy, such as <code>1 MWh, f_X = 0.73</code>.</p>
           </div>
           <div>
             <span class="step-number">3</span>
@@ -190,10 +190,9 @@ print(report.as_dict())</code></pre>
 
     <footer class="site-footer">
       <span>Christopher DiMurro, 2026</span>
-      <span>Report quantity plus Exergy Factor: (E, f_X) and (P, f_X).</span>
+      <span>Default notation: 1 MWh, f_X = 0.73.</span>
     </footer>
 
     <script src="assets/app.js"></script>
   </body>
 </html>
-

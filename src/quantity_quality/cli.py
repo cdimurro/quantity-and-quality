@@ -80,8 +80,7 @@ def _emit(payload: object, as_json: bool) -> None:
 
     if isinstance(payload, dict) and payload.get("type") == "energy":
         print(f"{payload['label']}")
-        print(f"quantity: {payload['quantity']} {payload['unit']}")
-        print(f"f_X: {payload['exergy_factor']:.6g}")
+        print(f"report: {payload['quantity']} {payload['unit']}, f_X = {payload['exergy_factor']:.6g}")
         print(f"accessible exergy: {payload['accessible_exergy']:.6g} {payload['accessible_exergy_unit']}")
         return
 
