@@ -1,4 +1,4 @@
-# Quantity and Quality
+# Energy Quantity and Quality
 
 Companion repository for **Quantity and Quality: A Standard Reporting Framework for Energy Systems**.
 
