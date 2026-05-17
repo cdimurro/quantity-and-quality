@@ -46,18 +46,18 @@
   },
   {
     "id": "solar-radiation-standard",
-    "name": "Solar radiation resource at 25 C reference",
+    "name": "Solar radiation resource at 20 C reference",
     "category": "radiative",
     "carrier": "photon radiation",
-    "basis": "Petela radiation Exergy Factor, reference=25 C",
+    "basis": "Petela radiation Exergy Factor, reference=20 C",
     "quantity_unit": "MWh_solar",
-    "exergy_factor": 0.931,
+    "exergy_factor": 0.932,
     "factor_unit": "MWh_ex/MWh",
-    "reference": "25 C reference environment",
+    "reference": "20 C reference environment",
     "boundary": "solar resource or collector aperture",
     "calculation": "1 - (4/3)(T0/Tsun) + (1/3)(T0/Tsun)^4",
     "adoption_note": "Use when reporting incident solar resource quality before PV or thermal conversion losses.",
-    "source": "Petela radiation factor, mirrored from breakthrough-engine quality_factors"
+    "source": "Petela radiation factor using DiMurro 2026 default reference"
   },
   {
     "id": "battery-discharge",

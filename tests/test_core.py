@@ -5,6 +5,7 @@ import pytest
 from quantity_quality import (
     COMMON_NOTATION_EXAMPLES,
     EnergyReport,
+    ReferenceEnvironment,
     ReferenceContext,
     annotate_record,
     chemical_exergy_factor,
@@ -72,20 +73,30 @@ def test_invalid_thermal_factor_rejects_reversed_temperatures():
 
 def test_adoption_notation_format_and_parse():
     notation = format_energy_notation(1, "MWh", 0.73)
-    assert notation == "1 MWh, f_X = 0.73"
+    assert notation == "1 MWh, fx = 0.73"
     parsed = parse_energy_notation(notation)
     assert parsed.quantity == 1
     assert parsed.unit == "MWh"
     assert parsed.exergy_factor == pytest.approx(0.73)
+    assert parse_energy_notation("1 MWh, f_X = 0.73").exergy_factor == pytest.approx(0.73)
+    assert parse_energy_notation("1 MWh, fX = 0.73").exergy_factor == pytest.approx(0.73)
 
 
 def test_petela_solar_factor():
-    assert petela_exergy_factor() == pytest.approx(0.931, abs=0.001)
+    assert petela_exergy_factor() == pytest.approx(0.932, abs=0.001)
+    assert petela_exergy_factor(298.15) == pytest.approx(0.931, abs=0.001)
+
+
+def test_reference_environment_uses_paper_default():
+    environment = ReferenceEnvironment()
+    assert environment.id == "standard_ambient_20c_101325pa"
+    assert environment.temperature_k == pytest.approx(293.15)
+    assert environment.pressure_pa == pytest.approx(101325.0)
 
 
 def test_common_examples_have_20_records():
     assert len(COMMON_NOTATION_EXAMPLES) == 20
-    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "1 MWh, f_X = 1"
+    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "845 kWh, fx = 1"
 
 
 def test_annotate_record_from_reference_id():
@@ -99,7 +110,7 @@ def test_annotate_record_from_reference_id():
         }
     )
     assert annotated.ok
-    assert annotated.record["notation"] == "1 MWh_th, f_X = 0.17"
+    assert annotated.record["notation"] == "1 MWh_th, fx = 0.17"
     assert annotated.record["accessible_exergy"] == pytest.approx(0.17)
     assert annotated.record["accessible_exergy_unit"] == "MWh_ex"
     assert annotated.record["operating_basis"] == "Carnot factor, source=80 C, sink=20 C"

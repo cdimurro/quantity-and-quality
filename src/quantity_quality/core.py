@@ -8,7 +8,7 @@ from typing import Iterable, Mapping, Optional, Tuple, Union
 
 Number = Union[int, float]
 T_SUN_K = 5778.0
-STANDARD_AMBIENT_K = 298.15
+STANDARD_AMBIENT_K = 293.15
 
 
 @dataclass(frozen=True)
@@ -28,7 +28,7 @@ class ReferenceContext:
 class ReferenceEnvironment:
     """Standard reference environment metadata for comparable reporting."""
 
-    id: str = "standard_ambient_25c_101325pa"
+    id: str = "standard_ambient_20c_101325pa"
     temperature_k: float = STANDARD_AMBIENT_K
     pressure_pa: float = 101325.0
     source: str = "standard ambient reporting convention"
@@ -120,7 +120,7 @@ class PowerReport:
 
 @dataclass(frozen=True)
 class ParsedNotation:
-    """Parsed representation of strings like `1 MWh, f_X = 0.73`."""
+    """Parsed representation of strings like `1 MWh, fx = 0.73`."""
 
     quantity: float
     unit: str
@@ -152,7 +152,7 @@ def format_energy_notation(
     *,
     precision: int = 3,
 ) -> str:
-    """Return the adoption notation, for example `1 MWh, f_X = 0.73`."""
+    """Return the adoption notation, for example `1 MWh, fx = 0.73`."""
 
     quantity = float(quantity_or_power)
     _require_nonnegative(quantity, "quantity_or_power")
@@ -160,7 +160,7 @@ def format_energy_notation(
         raise ValueError("unit is required")
     return (
         f"{_format_number(quantity, precision=precision)} {unit}, "
-        f"f_X = {format_exergy_factor(exergy_factor, precision=precision)}"
+        f"fx = {format_exergy_factor(exergy_factor, precision=precision)}"
     )
 
 
@@ -190,11 +190,11 @@ _NOTATION_RE = re.compile(
 
 
 def parse_energy_notation(text: str) -> ParsedNotation:
-    """Parse strings like `1 MWh, f_X = 0.73`."""
+    """Parse strings like `1 MWh, fx = 0.73`."""
 
     match = _NOTATION_RE.match(text)
     if not match:
-        raise ValueError("expected notation like '1 MWh, f_X = 0.73'")
+        raise ValueError("expected notation like '1 MWh, fx = 0.73'")
     quantity = float(match.group("quantity"))
     unit = match.group("unit").strip()
     factor = float(match.group("factor"))
@@ -211,7 +211,7 @@ def report_from_notation(
     context: Optional[ReferenceContext] = None,
     label: Optional[str] = None,
 ) -> EnergyReport:
-    """Build an EnergyReport from `1 MWh, f_X = 0.73` style notation."""
+    """Build an EnergyReport from `1 MWh, fx = 0.73` style notation."""
 
     parsed = parse_energy_notation(text)
     return EnergyReport(
@@ -250,7 +250,7 @@ def thermal_exergy_factor_c(source_c: Number, sink_c: Number) -> float:
 def cooling_exergy_factor_c(cold_service_c: Number, ambient_sink_c: Number) -> float:
     """Minimum work potential per unit cooling for a cold service below ambient.
 
-    This uses f_X = T_ambient / T_cold - 1. Treat it as a service-demand factor,
+    This uses fx = T_ambient / T_cold - 1. Treat it as a service-demand factor,
     not as a heat-source factor.
     """
 

@@ -34,7 +34,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    report = subparsers.add_parser("report", help="Create one report: 1 MWh, f_X = 0.73.")
+    report = subparsers.add_parser("report", help="Create one report: 1 MWh, fx = 0.73.")
     report.add_argument("--quantity", type=float, required=True)
     report.add_argument("--unit", required=True)
     report.add_argument("--fx", "--exergy-factor", dest="exergy_factor", type=float, required=True)
@@ -43,7 +43,7 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     report.set_defaults(func=cmd_report)
 
-    parse = subparsers.add_parser("parse", help="Parse notation like '1 MWh, f_X = 0.73'.")
+    parse = subparsers.add_parser("parse", help="Parse notation like '1 MWh, fx = 0.73'.")
     parse.add_argument("notation")
     parse.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     parse.set_defaults(func=cmd_parse)
@@ -57,13 +57,13 @@ def build_parser() -> argparse.ArgumentParser:
     thermal.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     thermal.set_defaults(func=cmd_thermal)
 
-    solar = subparsers.add_parser("solar", help="Compute solar radiation f_X and optional exergy rate.")
+    solar = subparsers.add_parser("solar", help="Compute solar radiation fx and optional exergy rate.")
     solar.add_argument("--quantity", type=float, default=1.0)
     solar.add_argument("--unit", default="MWh_solar")
-    solar.add_argument("--reference-c", type=float, default=25.0)
+    solar.add_argument("--reference-c", type=float, default=20.0)
     solar.add_argument("--irradiance-w-m2", type=float, default=None)
     solar.add_argument("--area-m2", type=float, default=None)
-    _add_context_args(solar, reference="25 C reference environment", boundary="solar resource boundary")
+    _add_context_args(solar, reference="20 C reference environment", boundary="solar resource boundary")
     solar.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     solar.set_defaults(func=cmd_solar)
 
@@ -83,7 +83,7 @@ def build_parser() -> argparse.ArgumentParser:
     examples.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     examples.set_defaults(func=cmd_examples)
 
-    annotate = subparsers.add_parser("annotate", help="Annotate CSV/JSON records with f_X and MWh_ex.")
+    annotate = subparsers.add_parser("annotate", help="Annotate CSV/JSON records with fx and MWh_ex.")
     annotate.add_argument("input", help="Input .csv or .json file")
     annotate.add_argument("--output", "-o", default="", help="Optional output .csv or .json file")
     annotate.add_argument("--json", action="store_true", help="Emit JSON summary instead of text.")
@@ -195,7 +195,7 @@ def cmd_list(args: argparse.Namespace) -> int:
         _emit_json({"schema_version": REPORT_SCHEMA_VERSION, "records": records})
     else:
         for record in records:
-            print(f"{record['id']}: {record['name']} | f_X={record['exergy_factor']}")
+            print(f"{record['id']}: {record['name']} | fx={record['exergy_factor']}")
     return 0
 
 
