@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quantity-quality"
-version = "0.2.0"
+version = "0.3.0"
 description = "Adoption tools for reporting energy quantity together with Exergy Factor."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -27,6 +27,9 @@ classifiers = [
 Homepage = "https://github.com/cdimurro/quantity-and-quality"
 Repository = "https://github.com/cdimurro/quantity-and-quality"
 Paper = "https://github.com/cdimurro/quantity-and-quality/blob/main/paper/quantity-and-quality-standard-reporting-framework.pdf"
+
+[project.optional-dependencies]
+data = ["pandas>=2.0", "openpyxl>=3.1"]
 
 [project.scripts]
 quantity-quality = "quantity_quality.cli:main"

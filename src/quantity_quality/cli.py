@@ -5,26 +5,18 @@ import json
 from pathlib import Path
 from typing import Iterable, Optional
 
-from .adoption import ADOPTION_FIELDS, COMMON_NOTATION_EXAMPLES, STANDARD_INTEGRATION_POINTS
-from .core import (
-    EnergyReport,
-    ReferenceContext,
-    exergy_unit,
-    format_energy_notation,
-    parse_energy_notation,
-    petela_exergy_factor,
-    report_from_notation,
-    solar_exergy_rate,
-    thermal_exergy_factor_c,
+from .adoption import ADOPTION_FIELDS, COMMON_NOTATION_EXAMPLES, INPUT_PATTERNS, STANDARD_INTEGRATION_POINTS
+from .api import (
+    from_notation as build_from_notation,
+    lookup as build_lookup,
+    report as build_report,
+    solar as build_solar,
+    thermal as build_thermal,
 )
-from .records import (
-    REPORT_SCHEMA_VERSION,
-    annotate_records,
-    load_records,
-    validation_summary,
-    write_annotated_records,
-)
-from .reference import filter_reference_examples, get_reference_example
+from .clean import clean_file
+from .core import solar_exergy_rate
+from .records import REPORT_SCHEMA_VERSION
+from .reference import filter_reference_examples
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -50,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     thermal = subparsers.add_parser("thermal", help="Compute a thermal Exergy Factor.")
     thermal.add_argument("--source-c", type=float, required=True)
-    thermal.add_argument("--sink-c", type=float, required=True)
+    thermal.add_argument("--sink-c", type=float, default=None, help="Reference sink in C; defaults to 20 C.")
     thermal.add_argument("--quantity", type=float, default=1.0)
     thermal.add_argument("--unit", default="MWh_th")
     _add_context_args(thermal)
@@ -83,14 +75,22 @@ def build_parser() -> argparse.ArgumentParser:
     examples.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     examples.set_defaults(func=cmd_examples)
 
-    annotate = subparsers.add_parser("annotate", help="Annotate CSV/JSON records with fx and MWh_ex.")
-    annotate.add_argument("input", help="Input .csv or .json file")
-    annotate.add_argument("--output", "-o", default="", help="Optional output .csv or .json file")
+    annotate = subparsers.add_parser("annotate", help="Clean messy energy records into Quantity + Quality records.")
+    annotate.add_argument("input", help="Input .csv, .json, .jsonl, .ndjson, .xlsx, or .xls file")
+    annotate.add_argument("--output", "-o", default="", help="Optional output .csv, .json, .jsonl, or .ndjson file")
+    annotate.add_argument("--mapping", default="", help="JSON object or path mapping standard fields to source fields.")
+    annotate.add_argument("--defaults", default="", help="JSON object or path with default field values.")
+    annotate.add_argument("--default-sink-c", type=float, default=20.0)
+    annotate.add_argument("--no-default-sink", action="store_true", help="Do not assume T0 = 20 C for thermal records.")
     annotate.add_argument("--json", action="store_true", help="Emit JSON summary instead of text.")
     annotate.set_defaults(func=cmd_annotate)
 
-    validate = subparsers.add_parser("validate", help="Validate CSV/JSON adoption records.")
-    validate.add_argument("input", help="Input .csv or .json file")
+    validate = subparsers.add_parser("validate", help="Validate/preview messy energy records.")
+    validate.add_argument("input", help="Input .csv, .json, .jsonl, .ndjson, .xlsx, or .xls file")
+    validate.add_argument("--mapping", default="", help="JSON object or path mapping standard fields to source fields.")
+    validate.add_argument("--defaults", default="", help="JSON object or path with default field values.")
+    validate.add_argument("--default-sink-c", type=float, default=20.0)
+    validate.add_argument("--no-default-sink", action="store_true", help="Do not assume T0 = 20 C for thermal records.")
     validate.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     validate.set_defaults(func=cmd_validate)
 
@@ -108,56 +108,48 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
 
 
 def cmd_report(args: argparse.Namespace) -> int:
-    report = EnergyReport(
-        quantity=args.quantity,
-        unit=args.unit,
-        exergy_factor=args.exergy_factor,
+    record = build_report(
+        args.quantity,
+        args.unit,
+        fx=args.exergy_factor,
         label=args.label or None,
-        context=_context_from_args(args),
+        reference=args.reference,
+        boundary=args.boundary,
+        basis=args.operating_basis,
     )
-    _emit_report(report.as_dict(), args.json)
+    _emit_report(record.as_dict(), args.json)
     return 0
 
 
 def cmd_parse(args: argparse.Namespace) -> int:
-    report = report_from_notation(args.notation)
-    _emit_report(report.as_dict(), args.json)
+    record = build_from_notation(args.notation)
+    _emit_report(record.as_dict(), args.json)
     return 0
 
 
 def cmd_thermal(args: argparse.Namespace) -> int:
-    factor = thermal_exergy_factor_c(args.source_c, args.sink_c)
-    report = EnergyReport(
+    record = build_thermal(
         quantity=args.quantity,
         unit=args.unit,
-        exergy_factor=factor,
-        label=f"{args.source_c:g} C heat to {args.sink_c:g} C sink",
-        context=ReferenceContext(
-            reference=args.reference,
-            boundary=args.boundary,
-            operating_basis=(
-                args.operating_basis
-                or f"Carnot factor, source={args.source_c:g} C, sink={args.sink_c:g} C"
-            ),
-        ),
+        source_c=args.source_c,
+        sink_c=args.sink_c,
+        reference=args.reference,
+        boundary=args.boundary or "thermal stream",
+        basis=args.operating_basis,
     )
-    _emit_report(report.as_dict(), args.json)
+    _emit_report(record.as_dict(), args.json)
     return 0
 
 
 def cmd_solar(args: argparse.Namespace) -> int:
     reference_k = args.reference_c + 273.15
-    factor = petela_exergy_factor(reference_k)
-    report = EnergyReport(
+    report = build_solar(
         quantity=args.quantity,
         unit=args.unit,
-        exergy_factor=factor,
-        label=f"solar radiation at {args.reference_c:g} C reference",
-        context=ReferenceContext(
-            reference=args.reference,
-            boundary=args.boundary,
-            operating_basis=args.operating_basis or "Petela radiation factor",
-        ),
+        reference_c=args.reference_c,
+        reference=args.reference,
+        boundary=args.boundary or "solar resource boundary",
+        basis=args.operating_basis,
     ).as_dict()
     if args.irradiance_w_m2 is not None and args.area_m2 is not None:
         report["solar_exergy_rate_w"] = solar_exergy_rate(
@@ -170,22 +162,25 @@ def cmd_solar(args: argparse.Namespace) -> int:
 
 
 def cmd_lookup(args: argparse.Namespace) -> int:
-    record = get_reference_example(args.id)
-    unit = record["quantity_unit"]
-    factor = float(record["exergy_factor"])
-    payload = dict(record)
-    payload["notation"] = format_energy_notation(args.quantity, unit, factor)
-    payload["accessible_exergy"] = args.quantity * factor
-    payload["accessible_exergy_unit"] = exergy_unit(unit)
+    record = build_lookup(args.id, quantity=args.quantity)
+    payload = record.as_dict()
     if args.json:
         _emit_json(payload)
     else:
-        print(f"{payload['id']}: {payload['name']}")
-        print(f"report: {payload['notation']}")
+        print(payload.get("label", args.id))
+        print(f"report: {payload['full_notation']}")
         print(f"accessible exergy: {payload['accessible_exergy']:.6g} {payload['accessible_exergy_unit']}")
+        capabilities = ", ".join(payload.get("capabilities", []))
+        if capabilities:
+            print(f"capabilities: {capabilities}")
+        missing = ", ".join(payload.get("missing_context", []))
+        if missing:
+            print(f"missing context: {missing}")
         print(f"reference: {payload['reference']}")
         print(f"basis: {payload['basis']}")
-        print(f"use: {payload['adoption_note']}")
+        adoption_note = payload.get("metadata", {}).get("adoption_note", "")
+        if adoption_note:
+            print(f"use: {adoption_note}")
     return 0
 
 
@@ -209,15 +204,19 @@ def cmd_examples(args: argparse.Namespace) -> int:
 
 
 def cmd_annotate(args: argparse.Namespace) -> int:
-    records = annotate_records(load_records(Path(args.input)))
-    summary = validation_summary(records)
-    if args.output:
-        write_annotated_records(records, Path(args.output))
-        summary["output"] = args.output
+    summary = clean_file(
+        args.input,
+        output=args.output or None,
+        mapping=_load_json_arg(args.mapping),
+        defaults=_load_json_arg(args.defaults),
+        assume_default_sink=not args.no_default_sink,
+        default_sink_c=args.default_sink_c,
+    )
     if args.json:
         _emit_json(summary)
     else:
-        print(f"records: {summary['valid_records']} valid / {summary['total_records']} total")
+        print(f"records: {summary['clean_records']} clean / {summary['total_records']} total")
+        print(f"needs attention: {summary['records_needing_attention']}")
         if args.output:
             print(f"wrote: {args.output}")
         for issue in summary["issues"]:
@@ -226,12 +225,19 @@ def cmd_annotate(args: argparse.Namespace) -> int:
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    summary = validation_summary(annotate_records(load_records(Path(args.input))))
+    summary = clean_file(
+        args.input,
+        mapping=_load_json_arg(args.mapping),
+        defaults=_load_json_arg(args.defaults),
+        assume_default_sink=not args.no_default_sink,
+        default_sink_c=args.default_sink_c,
+    )
     if args.json:
         _emit_json(summary)
     else:
         print(f"valid: {summary['ok']}")
-        print(f"records: {summary['valid_records']} valid / {summary['total_records']} total")
+        print(f"records: {summary['clean_records']} clean / {summary['total_records']} total")
+        print(f"needs attention: {summary['records_needing_attention']}")
         for issue in summary["issues"]:
             print(f"row {issue['row']}: {issue['field']} - {issue['message']}")
     return 0 if summary["ok"] else 2
@@ -240,14 +246,18 @@ def cmd_validate(args: argparse.Namespace) -> int:
 def cmd_schema(args: argparse.Namespace) -> int:
     payload = {
         "schema_version": REPORT_SCHEMA_VERSION,
-        "minimum_fields": ADOPTION_FIELDS,
+        "recommended_fields": ADOPTION_FIELDS,
+        "input_patterns": INPUT_PATTERNS,
         "integration_points": STANDARD_INTEGRATION_POINTS,
     }
     if args.json:
         _emit_json(payload)
     else:
         print(f"schema: {REPORT_SCHEMA_VERSION}")
-        print("minimum fields:")
+        print("input patterns:")
+        for name, fields in INPUT_PATTERNS.items():
+            print(f"  - {name}: {', '.join(fields)}")
+        print("recommended interoperable fields:")
         for field in ADOPTION_FIELDS:
             print(f"  - {field}")
         print("integration points:")
@@ -259,34 +269,48 @@ def cmd_schema(args: argparse.Namespace) -> int:
 def _add_context_args(
     parser: argparse.ArgumentParser,
     *,
-    reference: str = "declared by reporter",
-    boundary: str = "declared reporting boundary",
+    reference: str = "",
+    boundary: str = "",
 ) -> None:
     parser.add_argument("--reference", default=reference)
     parser.add_argument("--boundary", default=boundary)
     parser.add_argument("--operating-basis", default="")
-
-
-def _context_from_args(args: argparse.Namespace) -> ReferenceContext:
-    return ReferenceContext(
-        reference=args.reference,
-        boundary=args.boundary,
-        operating_basis=args.operating_basis or "provided Exergy Factor",
-    )
-
 
 def _emit_report(payload: dict, as_json: bool) -> None:
     if as_json:
         _emit_json({"schema_version": REPORT_SCHEMA_VERSION, "record": payload})
         return
     print(payload.get("label") or "energy report")
-    print(f"report: {payload['notation']}")
+    print(f"report: {payload.get('full_notation') or payload['notation']}")
     exergy = payload.get("accessible_exergy", payload.get("accessible_exergy_rate"))
     exergy_unit = payload.get("accessible_exergy_unit", payload.get("accessible_exergy_rate_unit"))
     print(f"accessible exergy: {exergy:.6g} {exergy_unit}")
+    capabilities = ", ".join(payload.get("capabilities", []))
+    if capabilities:
+        print(f"capabilities: {capabilities}")
+    missing = ", ".join(payload.get("missing_context", []))
+    if missing:
+        print(f"missing context: {missing}")
+    for assumption in payload.get("assumptions", []):
+        print(f"assumption: {assumption}")
+    for warning in payload.get("warnings", []):
+        print(f"warning: {warning}")
     if "solar_exergy_rate_w" in payload:
         print(f"solar exergy rate: {payload['solar_exergy_rate_w']:.6g} W_ex")
 
 
 def _emit_json(payload: object) -> None:
     print(json.dumps(payload, indent=2))
+
+
+def _load_json_arg(value: str) -> Optional[dict]:
+    if not value:
+        return None
+    path = Path(value)
+    if path.exists():
+        data = json.loads(path.read_text(encoding="utf-8"))
+    else:
+        data = json.loads(value)
+    if not isinstance(data, dict):
+        raise ValueError("mapping/defaults must be a JSON object")
+    return data

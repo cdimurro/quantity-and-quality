@@ -139,6 +139,15 @@ ADOPTION_FIELDS = [
 ]
 
 
+INPUT_PATTERNS = {
+    "known_fx": ["quantity", "unit", "fx"],
+    "reference_lookup": ["quantity", "unit", "reference_id"],
+    "thermal_measurement": ["quantity", "unit", "source_c", "sink_c"],
+    "chemical_calculation": ["quantity", "unit", "chemical_exergy", "energy_basis"],
+    "fuel_preset": ["quantity", "unit", "fuel", "energy_basis"],
+}
+
+
 STANDARD_INTEGRATION_POINTS = [
     {
         "standard": "ISO 50001 energy management",

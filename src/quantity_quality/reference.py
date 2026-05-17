@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from importlib import resources
 from typing import Iterable, List, Optional
 
@@ -44,3 +45,32 @@ def filter_reference_examples(
         result.append(record)
     return result
 
+
+def extract_temperature_context(record: dict) -> dict:
+    """Extract simple temperature metadata from bundled reference examples."""
+
+    text = " ".join(str(record.get(key, "")) for key in ("name", "basis", "calculation"))
+    thermal = re.search(
+        r"(?:source|storage temperature)\s*=\s*(?P<source>-?\d+(?:\.\d+)?)\s*C"
+        r".*?sink\s*=\s*(?P<sink>-?\d+(?:\.\d+)?)\s*C",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if thermal:
+        return {
+            "source_c": float(thermal.group("source")),
+            "sink_c": float(thermal.group("sink")),
+        }
+
+    cooling = re.search(
+        r"cold\s*=\s*(?P<cold>-?\d+(?:\.\d+)?)\s*C"
+        r".*?ambient\s*=\s*(?P<ambient>-?\d+(?:\.\d+)?)\s*C",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if cooling:
+        return {
+            "cold_service_c": float(cooling.group("cold")),
+            "ambient_sink_c": float(cooling.group("ambient")),
+        }
+    return {}

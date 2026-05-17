@@ -140,24 +140,57 @@ fx = 1 - 293.15 / 353.15 = 0.170
 ## Python example
 
 ```python
-from quantity_quality import EnergyReport, ReferenceContext, thermal_exergy_factor_c
+import quantity_quality as qq
 
-context = ReferenceContext(
-    reference="T0 = 20 C",
-    boundary="building heating loop",
-    operating_basis="Carnot factor from source and sink temperatures",
+record = qq.report(1, "MWh", fx=0.73)
+print(record.notation)
+# 1 MWh, fx = 0.73
+
+heat = qq.thermal(2.738, "kWh_th", source_c=541)
+print(heat.full_notation)
+# 2.738 kWh_th, fx = 0.64 [Th = 541 C, T0 = 20 C]
+
+district_heat = qq.lookup("heat-80c-standard", quantity=1.8)
+print(district_heat.full_notation)
+# 1.8 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]
+```
+
+The library can also clean messy real-world data without forcing every user through a fixed checklist:
+
+```python
+messy_records = [
+    {"asset": "Grid meter", "energy_kwh": 845, "reference_id": "electricity-delivered"},
+    {"asset": "Kiln exhaust", "energy_kwh": 2738, "supply_temp_f": 1005.8},
+    {"asset": "Unknown stream", "quantity": 2.738, "unit": "kWh_th", "fx": 0.64},
+]
+
+clean = qq.clean_records(messy_records)
+for record in clean:
+    print(record["full_notation"], record["missing_context"])
+```
+
+If source field names are unusual, provide a mapping:
+
+```python
+record = qq.clean_record(
+    {"asset": "Kiln exhaust", "measured_energy": 2.738, "supply_temp_f": 1005.8},
+    mapping={
+        "label": "asset",
+        "quantity": "measured_energy",
+        "unit": "kWh_th",
+        "source_f": "supply_temp_f",
+    },
 )
+```
 
-factor = thermal_exergy_factor_c(source_c=80, sink_c=20)
+The cleanup API accepts records from dictionaries, lists, CSV, JSON, JSONL/NDJSON, DataFrames, SQL query results, streams, URLs, and Excel files when optional data dependencies are installed:
 
-stream = EnergyReport(
-    quantity=1.0,
-    unit="MWh_th",
-    exergy_factor=factor,
-    context=context,
-)
-
-print(stream.as_dict())
+```python
+qq.clean_file("energy.csv")
+qq.clean_file("meter_events.jsonl")
+qq.clean_dataframe(df)
+qq.clean_sql(connection, "select * from meter_readings")
+qq.clean_stream(sensor_events)
 ```
 
 ---
@@ -173,6 +206,8 @@ quantity-quality lookup heat-80c-standard
 quantity-quality list --category thermal
 quantity-quality examples
 quantity-quality annotate examples/adoption_records.csv --output runtime/adoption_records_annotated.csv
+quantity-quality annotate meter_events.jsonl --output meter_events_clean.jsonl
+quantity-quality annotate messy.csv --mapping '{"quantity":"Measured Energy","unit":"kWh_th","source_f":"Supply Temp F"}'
 quantity-quality validate examples/adoption_records.csv
 ```
 
@@ -505,20 +540,32 @@ adoption_note
 
 ---
 
-## Minimum reporting fields
+## Machine-readable input patterns
 
-A minimum machine-readable record should include:
+The library accepts incomplete records immediately, computes what it can, and returns `capabilities`, `missing_context`, `assumptions`, and `warnings` so records can improve over time.
+
+The simplest machine-readable record only needs:
 
 ```text
 quantity or power
 unit
-exergy_factor
-reference
-boundary
-operating_basis
+fx or exergy_factor
 ```
 
-For thermal streams, include source temperature and reference sink temperature when possible.
+For declared context, add:
+
+```text
+reference
+boundary
+basis or operating_basis
+```
+
+For thermal streams, include source temperature and reference sink temperature when possible:
+
+```text
+source_c
+sink_c
+```
 
 For chemical carriers, declare the energy basis:
 

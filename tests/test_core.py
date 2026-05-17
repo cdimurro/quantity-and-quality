@@ -1,4 +1,5 @@
 import math
+import sqlite3
 
 import pytest
 
@@ -7,14 +8,28 @@ from quantity_quality import (
     EnergyReport,
     ReferenceEnvironment,
     ReferenceContext,
+    annotate_file,
     annotate_record,
     chemical_exergy_factor,
+    clean_dataframe,
+    clean_file,
+    clean_record,
+    clean_records,
+    clean_sql,
+    clean_stream,
+    compare,
+    electricity,
     exergy_unit,
+    fuel,
     format_energy_notation,
     get_reference_example,
     load_reference_examples,
+    lookup,
     parse_energy_notation,
     petela_exergy_factor,
+    report,
+    source_temperature_for_fx_c,
+    thermal,
     thermal_exergy_factor_c,
     weighted_exergy_factor,
 )
@@ -127,3 +142,126 @@ def test_annotate_record_from_temperatures():
     )
     assert annotated.ok
     assert annotated.record["exergy_factor"] == pytest.approx(0.170, abs=0.001)
+    assert "self_verifying" in annotated.record["capabilities"]
+    assert annotated.record["full_notation"] == "1 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]"
+
+
+def test_progressive_report_accepts_minimum_inputs_and_reports_missing_context():
+    record = report(1, "MWh", fx=0.73)
+    assert record.notation == "1 MWh, fx = 0.73"
+    assert "notation" in record.capabilities
+    assert "accessible_exergy" in record.capabilities
+    assert record.missing_context == ("reference", "boundary", "basis")
+    assert record.accessible_exergy == pytest.approx(0.73)
+    assert record.needs_attention
+
+
+def test_thermal_helper_defaults_to_20c_and_is_self_verifying():
+    record = thermal(2.738, "kWh_th", source_c=541)
+    assert "self_verifying" in record.capabilities
+    assert record.fx == pytest.approx(0.640, abs=0.001)
+    assert record.full_notation == "2.738 kWh_th, fx = 0.64 [Th = 541 C, T0 = 20 C]"
+    assert record.accessible_exergy_mwh == pytest.approx(0.001752, abs=0.000001)
+    assert source_temperature_for_fx_c(0.64) == pytest.approx(541.156, abs=0.001)
+
+
+def test_lookup_returns_contextual_record():
+    record = get_reference_example("heat-80c-standard")
+    assert record["reference"] == "20 C thermal sink"
+    qq_record = lookup("heat-80c-standard", quantity=1.8)
+    assert "self_verifying" in qq_record.capabilities
+    assert "reference_lookup" in qq_record.capabilities
+    assert qq_record.full_notation == "1.8 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]"
+
+
+def test_fuel_preset_and_comparison_helpers():
+    gas = fuel(850, "natural gas", basis="HHV", unit="MMBtu_HHV")
+    electric = electricity(0.2, "MWh")
+    rows = compare([gas, electric])
+    assert gas.fx == pytest.approx(0.93)
+    assert rows[0]["label"] == "natural gas on HHV basis"
+    assert rows[0]["accessible_exergy_mwh"] > rows[1]["accessible_exergy_mwh"]
+
+
+def test_annotate_file_returns_records_and_can_write(tmp_path):
+    output = tmp_path / "annotated.csv"
+    summary = annotate_file("examples/adoption_records.csv", output=output)
+    assert summary["ok"]
+    assert output.exists()
+    assert "self_verifying" in summary["records"][1]["capabilities"]
+
+
+def test_clean_record_maps_messy_fields_and_converts_temperatures():
+    record = clean_record(
+        {
+            "asset": "Kiln exhaust",
+            "energy_kwh": 2738,
+            "supply_temp_f": 1005.8,
+        }
+    )
+    assert record["label"] == "Kiln exhaust"
+    assert record["unit"] == "kWh_th"
+    assert record["source_c"] == pytest.approx(541.0)
+    assert record["sink_c"] == pytest.approx(20.0)
+    assert record["full_notation"] == "2738 kWh_th, fx = 0.64 [Th = 541 C, T0 = 20 C]"
+    assert "self_verifying" in record["capabilities"]
+
+
+def test_clean_record_supports_explicit_mapping_and_constants():
+    record = clean_record(
+        {"asset": "Kiln exhaust", "measured_energy": 2.738, "supply_temp_f": 1005.8},
+        mapping={
+            "label": "asset",
+            "quantity": "measured_energy",
+            "unit": "kWh_th",
+            "source_f": "supply_temp_f",
+        },
+    )
+    assert record["notation"] == "2.738 kWh_th, fx = 0.64"
+    assert record["accessible_exergy"] == pytest.approx(1.752, abs=0.001)
+
+
+def test_clean_records_supports_notation_and_fuel_presets():
+    records = clean_records(
+        [
+            {"notation": "1 MWh, fx = 0.73"},
+            {"fuel_type": "natural gas", "energy_mmbtu_hhv": 850, "energy_basis": "HHV"},
+        ]
+    )
+    assert records[0]["notation"] == "1 MWh, fx = 0.73"
+    assert records[1]["reference_id"] == "methane-hhv"
+    assert records[1]["fx"] == pytest.approx(0.93)
+
+
+def test_clean_file_supports_jsonl_and_json_output(tmp_path):
+    input_path = tmp_path / "records.jsonl"
+    input_path.write_text(
+        '{"asset":"Grid","energy_kwh":845,"reference_id":"electricity-delivered"}\n'
+        '{"asset":"Heat","energy_kwh":2738,"supply_temp_f":1005.8}\n',
+        encoding="utf-8",
+    )
+    output_path = tmp_path / "clean.json"
+    summary = clean_file(input_path, output=output_path)
+    assert summary["ok"]
+    assert output_path.exists()
+    assert summary["records"][1]["unit"] == "kWh_th"
+
+
+def test_clean_dataframe_accepts_pandas_like_objects():
+    class FakeFrame:
+        def to_dict(self, orient="records"):
+            assert orient == "records"
+            return [{"energy_kwh": 100, "fx": 0.5}]
+
+    records = clean_dataframe(FakeFrame())
+    assert records[0]["notation"] == "100 kWh, fx = 0.5"
+
+
+def test_clean_sql_and_stream_helpers():
+    connection = sqlite3.connect(":memory:")
+    connection.execute("create table energy (asset text, energy_kwh real, fx real)")
+    connection.execute("insert into energy values ('meter 1', 100, 0.5)")
+    rows = clean_sql(connection, "select * from energy")
+    streamed = list(clean_stream([{"energy_kwh": 200, "fx": 0.25}]))
+    assert rows[0]["notation"] == "100 kWh, fx = 0.5"
+    assert streamed[0]["notation"] == "200 kWh, fx = 0.25"
