@@ -9,31 +9,31 @@ This repo is the public home for supplemental material, reference example databa
 Stop reporting energy quantities as just one number where possible. This paper proposes the new standard notation should look like this:
 
 ```text
-1 MWh, f_X = 0.73
+1 MWh, fX = 0.73
 ```
 
 That means "one megawatt-hour of energy carrying 0.73 megawatt-hours of accessible work potential." The same pattern works for any scale or unit:
 
 ```text
-1 kWh, f_X = 0.73
-12 GJ, f_X = 0.41
-4.2 MW, f_X = 0.18
+1 kWh, fX = 0.73
+12 GJ, fX = 0.41
+4.2 MW, fX = 0.18
 ```
 
 The scientific version from the paper is written like this:
 
 ```text
-Energy quantity: (E, f_X)
-Power rate:      (P, f_X)
+Energy quantity: (E, fX)
+Power rate:      (P, fX)
 ```
 
-`E` or `P` says how much energy is present or moving. `f_X` says how much **accessible work potential** that energy carries at a declared reporting boundary.
+`E` or `P` says how much energy is present or moving. `fX` says how much **accessible work potential** that energy carries at a declared reporting boundary.
 
 ## Why this matters in the real world
 
-Energy decisions are made every day from spreadsheets, tariffs, meters, dashboards, audits, equipment specs, and policy reports that reduce energy to a single number. That single number is necessary, but it hides the difference between a high-grade resource that can do almost any energy job and a low-grade resource that can only satisfy a narrow service. The result is that projects can appear balanced in MWh while still wasting useful work potential.
+Energy decisions are made every day from spreadsheets, tariffs, meters, dashboards, audits, equipment specs, and policy reports that reduce energy to a single number. That single number is simple, but it hides important information about how valuable that number actually is. Adding fx shows difference between a high-grade resource that can do almost any energy job and a low-grade resource that can only satisfy a narrow service. The result is that projects can appear balanced in MWh while still wasting useful work potential.
 
-The discovery here is a missing reporting layer. The world already knows how to meter energy quantity. What it has not had is a simple notation that makes energy quality visible everywhere energy quantity is already reported. `1 MWh, f_X = 0.73` is meant to be easy enough for invoices, building dashboards, engineering reports, procurement specs, utility programs, academic papers, and machine-readable datasets.
+The discovery here is a missing reporting layer. The world already knows how to meter energy quantity. What it has not had is a simple notation that makes energy quality visible everywhere energy quantity is already reported. `1 MWh, fX = 0.73` is meant to be easy enough for invoices, building dashboards, engineering reports, procurement specs, utility programs, academic papers, and machine-readable datasets.
 
 This matters most where the energy transition is becoming multi-carrier: electricity, heat, hydrogen, methane, ammonia, batteries, thermal storage, district energy, compressed gases, industrial waste heat, and cooling all coexist in the same planning problem. A scalar MWh makes these resources look interchangeable. Exergy Factor shows whether a supply is well matched to the service it is being asked to perform.
 
@@ -41,37 +41,37 @@ For industry, this can reduce avoidable waste. It can show when high-grade elect
 
 For institutions, this is deliberately compatible with existing practice. It can be layered into [ISO 50001 energy management](https://www.iso.org/iso-50001-energy-management.html), [IPMVP measurement and verification](https://evo-world.org/en/products-services-mainmenu-en/protocols/ipmvp), and [ISO 14040 life-cycle assessment](https://www.iso.org/standard/37456.html) as a supplemental field. The point is not to replace kWh, emissions, cost, or lifecycle inventory data. The point is to stop those systems from hiding thermodynamic quality.
 
-## 20 common industry notation examples
+## Common industry notation examples
 
-These are starter examples for how the notation can appear in real reports. Exact values depend on the declared reference, boundary, and basis.
+These are examples for how the notation can appear in real reports. Exact values depend on the declared reference, boundary, and basis.
 
-| # | Real-world use case | Example notation | Typical use |
-|---:|---|---|---|
-| 1 | Grid electricity delivered | `1 MWh, f_X = 1` | Utility bills, facility meters, procurement |
-| 2 | PV electrical output | `1 MWh, f_X = 1` | Solar output after conversion to electricity |
-| 3 | Battery discharge | `1 MWh, f_X = 1` | Storage dispatch and grid services |
-| 4 | Motor shaft work | `1 MWh, f_X = 1` | Industrial drives, pumps, compressors |
-| 5 | Solar radiation resource | `1 MWh_solar, f_X = 0.931` | Solar resource quality before conversion losses |
-| 6 | 40 C low-temperature heat | `1 MWh_th, f_X = 0.064` | Space heating, data-center heat recovery |
-| 7 | 60 C domestic hot water heat | `1 MWh_th, f_X = 0.12` | Buildings, campuses, hotels, hospitals |
-| 8 | 80 C district heat | `1 MWh_th, f_X = 0.17` | District energy delivery and tariffs |
-| 9 | 80 C district heat to 50 C return | `1 MWh_th, f_X = 0.085` | Network operation using return-line sink |
-| 10 | 90 C district heat to 50 C return | `1 MWh_th, f_X = 0.11` | Campus and city heat networks |
-| 11 | 150 C low-pressure steam | `1 MWh_th, f_X = 0.307` | Process heat, food, pharma, paper, drying |
-| 12 | 250 C process heat | `1 MWh_th, f_X = 0.44` | Industrial heat recovery and electrification |
-| 13 | 500 C high-temperature heat | `1 MWh_th, f_X = 0.621` | Cement, metals, chemicals, high-grade heat |
-| 14 | Methane / natural gas on LHV basis | `1 MWh_LHV, f_X = 1.04` | Fuel inventories, gas procurement, boilers |
-| 15 | Methane / natural gas on HHV basis | `1 MWh_HHV, f_X = 0.93` | Gas bills and HHV-based fuel accounting |
-| 16 | Hydrogen on LHV basis | `1 MWh_LHV, f_X = 0.98` | Electrolyzers, refining, ammonia, fuel policy |
-| 17 | Hydrogen on HHV basis | `1 MWh_HHV, f_X = 0.83` | Hydrogen reporting with HHV denominator |
-| 18 | 80 C hot-water thermal storage | `1 MWh_th, f_X = 0.17` | Thermal storage and district energy |
-| 19 | 150 C process-heat storage | `1 MWh_th, f_X = 0.307` | Thermal oil, molten salt, industrial storage |
-| 20 | 7 C cooling service vs 30 C ambient | `1 MWh_cooling, f_X = 0.082` | Chilled water, refrigeration, district cooling |
+| Real-world Example | Notation | Use case |
+|---|---|---|
+| Grid electricity delivered | `1 MWh, fX = 1` | Utility bills, facility meters, procurement |
+| PV electrical output | `1 MWh, fX = 1` | Solar output after conversion to electricity |
+| Battery discharge | `1 MWh, fX = 1` | Storage dispatch and grid services |
+| Motor shaft work | `1 MWh, fX = 1` | Industrial drives, pumps, compressors |
+| Solar radiation resource | `1 MWh, fX = 0.931` | Solar resource quality before conversion losses |
+| 40 C low-temperature heat | `1 MWh, fX = 0.064` | Space heating, data-center heat recovery |
+| 60 C domestic hot water heat | `1 MWh, fX = 0.12` | Buildings, campuses, hotels, hospitals |
+| 80 C district heat | `1 MWh, fX = 0.17` | District energy delivery and tariffs |
+| 80 C district heat to 50 C return | `1 MWh, fX = 0.085` | Network operation using return-line sink |
+| 90 C district heat to 50 C return | `1 MWh, fX = 0.11` | Campus and city heat networks |
+| 150 C low-pressure steam | `1 MWh, fX = 0.307` | Process heat, food, pharma, paper, drying |
+| 250 C process heat | `1 MWh, fX = 0.44` | Industrial heat recovery and electrification |
+| 500 C high-temperature heat | `1 MWh, fX = 0.621` | Cement, metals, chemicals, high-grade heat |
+| Methane / natural gas on LHV basis | `1 MWh, fX = 1.04` | Fuel inventories, gas procurement, boilers |
+| Methane / natural gas on HHV basis | `1 MWh, fX = 0.93` | Gas bills and HHV-based fuel accounting |
+| Hydrogen on LHV basis | `1 MWh, fX = 0.98` | Electrolyzers, refining, ammonia, fuel policy |
+| Hydrogen on HHV basis | `1 MWh, fX = 0.83` | Hydrogen reporting with HHV denominator |
+| 80 C hot-water thermal storage | `1 MWh, fX = 0.17` | Thermal storage and district energy |
+| 150 C process-heat storage | `1 MWh, fX = 0.307` | Thermal oil, molten salt, industrial storage |
+| 7 C cooling service vs 30 C ambient | `1 MWh, fX = 0.082` | Chilled water, refrigeration, district cooling |
 
 ## What is in this repository
 
 - `data/reference_examples.json` and `data/reference_examples.csv` - starter reference examples for common energy carriers, heat grades, storage types, and reporting cases.
-- `src/quantity_quality/` - a small Python library for computing and reporting records like `1 MWh, f_X = 0.73`.
+- `src/quantity_quality/` - a small Python library for computing and reporting records like `1 MWh, fX = 0.73`.
 - `examples/quickstart.py` - a direct adoption example.
 - `paper/quantity-and-quality-standard-reporting-framework.pdf` - the source paper PDF.
 
@@ -120,7 +120,7 @@ print(stream.accessible_exergy)
 
 ```bash
 quantity-quality report --quantity 1 --unit MWh --fx 0.73
-quantity-quality parse "1 MWh, f_X = 0.73"
+quantity-quality parse "1 MWh, fX = 0.73"
 quantity-quality thermal --source-c 80 --sink-c 20 --quantity 1 --unit MWh
 quantity-quality solar --quantity 1 --unit MWh_solar
 quantity-quality lookup heat-80c-standard
@@ -152,14 +152,14 @@ For chemical carriers, also declare the energy basis, such as `LHV`, `HHV`, or `
 
 ## Adoption path for organizations
 
-Start by adding `exergy_factor` to existing energy records. Do not redesign every meter, dashboard, or procurement system first. The fastest adoption path is to keep the existing `quantity` and `unit` fields, add `f_X`, and attach the metadata needed to interpret it.
+Start by adding `exergy_factor` to existing energy records. Do not redesign every meter, dashboard, or procurement system first. The fastest adoption path is to keep the existing `quantity` and `unit` fields, add `fX`, and attach the metadata needed to interpret it.
 
 For a facility team, this can begin as a spreadsheet column beside kWh, therms, steam, chilled water, or fuel use. For a software team, it can begin as an additional field in telemetry, billing, ESG, LCA, or optimization data models. For a standards body, it can begin as a supplemental reporting attribute, not a replacement for existing energy accounting.
 
 Recommended first pilots:
 
 - District heating and cooling: publish MWh and MWh_ex by delivery temperature and return/sink condition.
-- Industrial heat recovery: rank waste heat streams by `quantity, f_X` rather than MWh alone.
+- Industrial heat recovery: rank waste heat streams by `quantity, fX` rather than MWh alone.
 - Hydrogen and fuel policy: require `LHV`, `HHV`, or chemical-exergy basis on every fuel record.
 - Energy audits and M&V: report both avoided energy and avoided accessible exergy.
 - Storage procurement: compare assets by service-grade MWh_ex, not nameplate MWh alone.
