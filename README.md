@@ -40,6 +40,7 @@ Power rate:      (P, fx)
 ## Why reference conditions matter
 
 Exergy is not absolute energy. Exergy is useful work potential relative to a reference environment, sink, service, boundary, and allowed conversion path.
+The same quantity of energy can simulatneously have zero Exergy relative to one reference environment but positive Exergy relative to another.
 
 That means this short notation:
 
@@ -53,7 +54,7 @@ is easy to read, but not fully self-verifying by itself. For a thermal stream, t
 2.738 kWh_th, fx = 0.64 [Th = 541 C, T0 = 20 C]
 ```
 
-With a different sink temperature, the same source would have a different `fx`. This is not a problem with the framework. It is the thermodynamics: useful work potential exists because there is an accessible gradient relative to a reference.
+With a different sink temperature, the same source would have a different `fx`. This is not a problem with the framework. It is the thermodynamics: useful work potential fundamentally exists because there is an accessible gradient relative to a reference.
 
 ## Recommended reporting rule
 
@@ -69,7 +70,7 @@ Use this when the reference convention is already known, when the carrier is una
 
 **Tier 2: full notation for verification**
 
-Use this for thermal streams, non-default references, technical reports, standards work, datasets, audits, and any case where another person should be able to verify the value from the notation itself.
+Use this for thermal streams, non-default references, technical reports, standards work, datasets, audits, and any case where another person needs to be able verify the exact value from the notation itself.
 
 ```text
 1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
@@ -77,7 +78,7 @@ Use this for thermal streams, non-default references, technical reports, standar
 
 **Tier 3: structured data for systems**
 
-Use this in APIs, databases, telemetry, invoices, procurement data, and standards templates where every field should be machine-readable.
+Use this in APIs, databases, telemetry, invoices, procurement data, and standards templates where every application that should be machine-readable.
 
 ```json
 {"energy_mwh": 1.0, "fx": 0.170, "T_h_C": 80, "T_0_C": 20}
@@ -102,12 +103,13 @@ T0 = 20 C = 293.15 K
 p0 = 101.325 kPa when pressure matters
 ```
 
-That default is useful because it keeps examples simple and makes common heat cases easy to compare. It also matches the revised paper's recommended reference convention.
+That default is useful because it keeps examples simple and makes common heat cases easy to compare. It also aligns with the previous literature on exergy.
 
-But `20 C` should be treated as a default convention, not a hidden universal truth. If a project uses a different sink, such as a district heating return line, condenser, ambient condition, chilled-water loop, or service boundary, declare it:
+`20 C` should be treated as a default reference point, not a hidden universal truth. If you specific application has a different environment sink temperature, which is likely, you have two options:
 
 ```text
-1 MWh_th, fx = 0.085 [Th = 80 C, T0 = 50 C return]
+1. Set the reference sink temperature to 20 C and then calculate the Exergy Potential Different (EPD) to your specific environment sink temperature and adjust the final value.
+2. Specify your exact reference sink temeprature in the notation itself: 1 MWh_th, fx = 0.15 [Th = 80 C, T0 = 25 C]
 ```
 
 For chemical fuels, the more important default is usually the energy basis. The revised paper recommends HHV as the default fuel basis for broad operational reporting because it avoids `fx > 1` for common fuels, while still allowing LHV when explicitly labeled.
