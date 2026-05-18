@@ -1,8 +1,6 @@
 # Energy Quantity and Quality
 
-Python tools for reporting energy quantity together with energy quality.
-
-Instead of reporting only:
+Instead of reporting:
 
 ```text
 1 MWh
@@ -24,7 +22,7 @@ For example:
 
 means that 1 MWh of 80 C heat carries about 0.170 MWh_ex of accessible work potential relative to a 20 C reference sink.
 
-This package is not a process simulator and does not replace detailed exergy analysis, ISO 50001, IPMVP, LCA, cost accounting, or engineering judgment. It gives existing records one additional quality field so electricity, fuels, heat, cooling, storage, and savings can be compared more honestly.
+This package is not a process simulator and does not replace detailed exergy analysis, ISO 50001, IPMVP, LCA, cost accounting, or engineering judgment. It gives existing energy quantity metrics one additional quality field so electricity, fuels, heat, cooling, storage, and savings can be compared honestly.
 
 ## Install
 
