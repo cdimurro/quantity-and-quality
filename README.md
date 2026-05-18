@@ -1,12 +1,12 @@
-# Energy Quantity and Quality
+# A Standard Reporting Framework for Energy Quantity and Quality
 
-Instead of reporting:
+Instead of writing:
 
 ```text
 1 MWh
 ```
 
-report:
+write:
 
 ```text
 1 MWh, fx = 0.170
