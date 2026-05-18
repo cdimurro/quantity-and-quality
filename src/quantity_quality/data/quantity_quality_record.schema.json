@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/cdimurro/quantity-and-quality/schemas/quantity_quality_record.schema.json",
+  "title": "Quantity + Quality Energy Record",
+  "description": "A machine-readable record for reporting energy quantity together with Exergy Factor.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "schema_version": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "quantity": {
+      "type": "number",
+      "minimum": 0
+    },
+    "power": {
+      "type": "number",
+      "minimum": 0
+    },
+    "unit": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fx": {
+      "type": "number",
+      "minimum": 0
+    },
+    "exergy_factor": {
+      "type": "number",
+      "minimum": 0
+    },
+    "notation": {
+      "type": "string"
+    },
+    "full_notation": {
+      "type": "string"
+    },
+    "accessible_exergy": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accessible_exergy_unit": {
+      "type": "string"
+    },
+    "reference_id": {
+      "type": "string"
+    },
+    "reference": {
+      "type": "string"
+    },
+    "boundary": {
+      "type": "string"
+    },
+    "basis": {
+      "type": "string"
+    },
+    "operating_basis": {
+      "type": "string"
+    },
+    "method": {
+      "type": "string"
+    },
+    "source_c": {
+      "type": "number"
+    },
+    "sink_c": {
+      "type": "number"
+    },
+    "cold_service_c": {
+      "type": "number"
+    },
+    "ambient_sink_c": {
+      "type": "number"
+    },
+    "fuel": {
+      "type": "string"
+    },
+    "chemical_exergy": {
+      "type": "number",
+      "exclusiveMinimum": 0
+    },
+    "energy_basis": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "missing_context": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "needs_attention": {
+      "type": "boolean"
+    }
+  },
+  "required": ["unit"],
+  "allOf": [
+    {
+      "anyOf": [
+        {
+          "required": ["quantity"]
+        },
+        {
+          "required": ["power"]
+        },
+        {
+          "required": ["notation"]
+        }
+      ]
+    },
+    {
+      "anyOf": [
+        {
+          "required": ["fx"]
+        },
+        {
+          "required": ["exergy_factor"]
+        },
+        {
+          "required": ["reference_id"]
+        },
+        {
+          "required": ["source_c", "sink_c"]
+        },
+        {
+          "required": ["cold_service_c", "ambient_sink_c"]
+        },
+        {
+          "required": ["chemical_exergy", "energy_basis"]
+        }
+      ]
+    }
+  ]
+}

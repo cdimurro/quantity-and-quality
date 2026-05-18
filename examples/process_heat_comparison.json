@@ -1,0 +1,50 @@
+{
+  "name": "process_heat_comparison",
+  "demand": {
+    "id": "process_heat_demand",
+    "label": "900 C process heat demand",
+    "quantity": 10000,
+    "unit": "MWh_th",
+    "source_c": 900,
+    "sink_c": 25
+  },
+  "options": [
+    {
+      "id": "natural_gas_hhv",
+      "label": "Natural gas HHV",
+      "reference_id": "methane-hhv",
+      "quantity": 10000,
+      "unit": "MWh_HHV",
+      "cost_per_mwh": 32,
+      "co2_kg_per_mwh": 181
+    },
+    {
+      "id": "hydrogen_hhv",
+      "label": "Hydrogen HHV",
+      "reference_id": "hydrogen-hhv",
+      "quantity": 10000,
+      "unit": "MWh_HHV",
+      "cost_per_mwh": 95,
+      "co2_kg_per_mwh": 0
+    },
+    {
+      "id": "electric_resistance",
+      "label": "Electric resistance",
+      "type": "electricity",
+      "quantity": 10000,
+      "unit": "MWh",
+      "cost_per_mwh": 70,
+      "co2_kg_per_mwh": 0
+    },
+    {
+      "id": "recovered_500c_heat",
+      "label": "Recovered 500 C heat",
+      "quantity": 10000,
+      "unit": "MWh_th",
+      "source_c": 500,
+      "sink_c": 25,
+      "cost_per_mwh": 12,
+      "co2_kg_per_mwh": 0
+    }
+  ]
+}

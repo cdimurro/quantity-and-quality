@@ -12,7 +12,9 @@
     "boundary": "metered electrical output or input",
     "calculation": "ideal electrical work potential per unit electrical energy",
     "adoption_note": "Use for grid electricity, site electricity, and metered electrical delivery; report conversion losses separately.",
-    "source": "DiMurro 2026 framework convention"
+    "source": "DiMurro 2026 framework convention",
+    "basis_type": "work_equivalent",
+    "confidence": "framework_convention"
   },
   {
     "id": "shaft-work",
@@ -27,7 +29,9 @@
     "boundary": "shaft or mechanical coupling",
     "calculation": "ideal work potential per unit work",
     "adoption_note": "Use for motors, turbines, pumps, and mechanical drives when reporting useful shaft work.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "basis_type": "work_equivalent",
+    "confidence": "reference_default"
   },
   {
     "id": "pv-dc-output",
@@ -42,7 +46,9 @@
     "boundary": "PV array DC output",
     "calculation": "electrical work potential per unit electrical energy",
     "adoption_note": "Use for PV output after conversion; solar resource exergy and conversion efficiency are separate questions.",
-    "source": "DiMurro 2026 framework convention"
+    "source": "DiMurro 2026 framework convention",
+    "basis_type": "work_equivalent",
+    "confidence": "framework_convention"
   },
   {
     "id": "solar-radiation-standard",
@@ -57,7 +63,10 @@
     "boundary": "solar resource or collector aperture",
     "calculation": "1 - (4/3)(T0/Tsun) + (1/3)(T0/Tsun)^4",
     "adoption_note": "Use when reporting incident solar resource quality before PV or thermal conversion losses.",
-    "source": "Petela radiation factor using DiMurro 2026 default reference"
+    "source": "Petela radiation factor using DiMurro 2026 default reference",
+    "basis_type": "radiative_petela",
+    "reference_c": 20.0,
+    "confidence": "reference_default"
   },
   {
     "id": "battery-discharge",
@@ -72,7 +81,9 @@
     "boundary": "battery discharge meter",
     "calculation": "electrical work potential per unit delivered electricity",
     "adoption_note": "Use for delivered battery electricity; round-trip efficiency and degradation belong in process metrics.",
-    "source": "DiMurro 2026 storage interpretation"
+    "source": "DiMurro 2026 storage interpretation",
+    "basis_type": "storage",
+    "confidence": "reference_default"
   },
   {
     "id": "pumped-hydro-output",
@@ -87,7 +98,9 @@
     "boundary": "pumped hydro generator",
     "calculation": "potential energy converted to electrical work at output boundary",
     "adoption_note": "Use for delivered electricity; hydraulic and turbine losses are reported separately.",
-    "source": "DiMurro 2026 storage interpretation"
+    "source": "DiMurro 2026 storage interpretation",
+    "basis_type": "storage",
+    "confidence": "reference_default"
   },
   {
     "id": "heat-35c-standard",
@@ -102,7 +115,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 308.15",
     "adoption_note": "Use for very low-grade waste heat, data-center heat, and mild return streams when 20 C is the declared sink.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 35.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-40c-standard",
@@ -117,7 +134,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 313.15",
     "adoption_note": "Use for low-temperature space heat and low-grade recovery screening.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "source_c": 40.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "reference_default"
   },
   {
     "id": "heat-50c-standard",
@@ -132,7 +153,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 323.15",
     "adoption_note": "Use for warm-water loops, preheat streams, and moderate building heating services.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 50.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-60c-standard",
@@ -147,7 +172,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 333.15",
     "adoption_note": "Use for domestic hot water and moderate process preheat examples.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 60.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-70c-standard",
@@ -162,7 +191,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 343.15",
     "adoption_note": "Use for district heat and process hot-water streams with a 20 C reference sink.",
-    "source": "DiMurro 2026 dynamic sink example"
+    "source": "DiMurro 2026 dynamic sink example",
+    "source_c": 70.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "reference_default"
   },
   {
     "id": "heat-70c-warm-sink",
@@ -177,7 +210,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 308.15 / 343.15",
     "adoption_note": "Use to show how a warmer accessible sink lowers the same stream's work potential.",
-    "source": "DiMurro 2026 dynamic sink example"
+    "source": "DiMurro 2026 dynamic sink example",
+    "source_c": 70.0,
+    "sink_c": 35.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "reference_default"
   },
   {
     "id": "heat-80c-standard",
@@ -192,7 +229,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 353.15",
     "adoption_note": "Use for district heating and recovered hot-water examples.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "source_c": 80.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "reference_default"
   },
   {
     "id": "district-80c-to-50c",
@@ -207,7 +248,11 @@
     "boundary": "district heating delivery point",
     "calculation": "1 - 323.15 / 353.15",
     "adoption_note": "Use when the actual accessible sink is the return line rather than ambient conditions.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 80.0,
+    "sink_c": 50.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-90c-standard",
@@ -222,7 +267,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 363.15",
     "adoption_note": "Use for higher-temperature district heating and process hot-water screening.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 90.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "district-90c-to-50c",
@@ -237,7 +286,11 @@
     "boundary": "district heating delivery point",
     "calculation": "1 - 323.15 / 363.15",
     "adoption_note": "Use for district heating records where the return temperature is the operational sink.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 90.0,
+    "sink_c": 50.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-120c-standard",
@@ -252,7 +305,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 393.15",
     "adoption_note": "Use for industrial drying, sterilization-adjacent services, and higher-grade waste heat.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 120.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-150c-standard",
@@ -267,7 +324,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 423.15",
     "adoption_note": "Use for low-pressure steam, process heat, and thermal storage examples.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "source_c": 150.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "reference_default"
   },
   {
     "id": "heat-180c-standard",
@@ -282,7 +343,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 453.15",
     "adoption_note": "Use for process steam and mid-temperature industrial heat screening.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 180.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-250c-standard",
@@ -297,7 +362,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 523.15",
     "adoption_note": "Use for higher-grade process heat and industrial heat-recovery ranking.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 250.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "heat-500c-standard",
@@ -312,7 +381,11 @@
     "boundary": "thermal delivery or source stream",
     "calculation": "1 - 293.15 / 773.15",
     "adoption_note": "Use for high-temperature process heat examples where a 20 C sink is declared.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 500.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "cooling-7c-30c-ambient",
@@ -327,7 +400,30 @@
     "boundary": "cooling service delivery boundary",
     "calculation": "303.15 / 280.15 - 1",
     "adoption_note": "Use for chilled water, refrigeration, cold storage, and district cooling demand records.",
-    "source": "computed from DiMurro 2026 cooling-service convention"
+    "source": "computed from DiMurro 2026 cooling-service convention",
+    "cold_service_c": 7.0,
+    "ambient_sink_c": 30.0,
+    "basis_type": "cooling_service",
+    "confidence": "computed_reference"
+  },
+  {
+    "id": "cooling-5c-20c-ambient",
+    "name": "5 C cooling service against 20 C ambient",
+    "category": "cooling",
+    "carrier": "cold thermal service",
+    "basis": "minimum work potential per unit cooling service, cold=5 C, ambient=20 C",
+    "quantity_unit": "MWh_cooling",
+    "exergy_factor": 0.054,
+    "factor_unit": "MWh_ex/MWh",
+    "reference": "20 C ambient heat-rejection sink",
+    "boundary": "cooling service delivery boundary",
+    "calculation": "293.15 / 278.15 - 1",
+    "adoption_note": "Use for the public web comparison preset for low-temperature cooling service.",
+    "source": "computed from DiMurro 2026 cooling-service convention",
+    "cold_service_c": 5.0,
+    "ambient_sink_c": 20.0,
+    "basis_type": "cooling_service",
+    "confidence": "computed_reference"
   },
   {
     "id": "methane-lhv",
@@ -342,7 +438,10 @@
     "boundary": "fuel inventory or fuel-flow meter",
     "calculation": "chemical exergy / LHV, rounded",
     "adoption_note": "Use when methane or natural gas is reported on an LHV basis; declare composition for real inventories.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "LHV",
+    "confidence": "reference_default"
   },
   {
     "id": "methane-hhv",
@@ -357,7 +456,10 @@
     "boundary": "fuel inventory or fuel-flow meter",
     "calculation": "chemical exergy / HHV, rounded",
     "adoption_note": "Use to avoid mixing HHV energy reports with LHV exergy-factor assumptions.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "HHV",
+    "confidence": "reference_default"
   },
   {
     "id": "hydrogen-lhv",
@@ -372,7 +474,10 @@
     "boundary": "fuel inventory or fuel-flow meter",
     "calculation": "chemical exergy / LHV, rounded",
     "adoption_note": "Use for electrolyzer output, hydrogen storage, and fuel policy comparisons on an LHV basis.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "LHV",
+    "confidence": "reference_default"
   },
   {
     "id": "hydrogen-hhv",
@@ -387,7 +492,82 @@
     "boundary": "fuel inventory or fuel-flow meter",
     "calculation": "chemical exergy / HHV, rounded",
     "adoption_note": "Use when hydrogen quantities are reported on an HHV basis; do not compare directly with LHV records without converting.",
-    "source": "DiMurro 2026 quick reference"
+    "source": "DiMurro 2026 quick reference",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "HHV",
+    "confidence": "reference_default"
+  },
+  {
+    "id": "diesel-lhv",
+    "name": "Diesel on LHV basis",
+    "category": "chemical",
+    "carrier": "chemical fuel",
+    "basis": "approximate chemical exergy divided by lower heating value",
+    "quantity_unit": "MWh_LHV",
+    "exergy_factor": 1.06,
+    "factor_unit": "MWh_ex/MWh",
+    "reference": "declared LHV energy basis",
+    "boundary": "fuel inventory or fuel-flow meter",
+    "calculation": "approximate chemical exergy / LHV, rounded",
+    "adoption_note": "Use as an illustrative public web preset; use composition-specific values for engineering studies.",
+    "source": "Exergy Factor website approximate fuel preset",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "LHV",
+    "confidence": "illustrative_reference"
+  },
+  {
+    "id": "gasoline-lhv",
+    "name": "Gasoline on LHV basis",
+    "category": "chemical",
+    "carrier": "chemical fuel",
+    "basis": "approximate chemical exergy divided by lower heating value",
+    "quantity_unit": "MWh_LHV",
+    "exergy_factor": 1.07,
+    "factor_unit": "MWh_ex/MWh",
+    "reference": "declared LHV energy basis",
+    "boundary": "fuel inventory or fuel-flow meter",
+    "calculation": "approximate chemical exergy / LHV, rounded",
+    "adoption_note": "Use as an illustrative public web preset; use composition-specific values for engineering studies.",
+    "source": "Exergy Factor website approximate fuel preset",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "LHV",
+    "confidence": "illustrative_reference"
+  },
+  {
+    "id": "crude-oil-approximate",
+    "name": "Crude oil approximate chemical exergy factor",
+    "category": "chemical",
+    "carrier": "chemical fuel",
+    "basis": "approximate crude oil chemical exergy factor",
+    "quantity_unit": "MWh_LHV",
+    "exergy_factor": 1.06,
+    "factor_unit": "MWh_ex/MWh",
+    "reference": "approximate crude oil energy basis",
+    "boundary": "fuel inventory or fuel-flow meter",
+    "calculation": "approximate chemical exergy / declared energy basis, rounded",
+    "adoption_note": "Use as an illustrative public web preset; use crude-assay-specific values for engineering studies.",
+    "source": "Exergy Factor website approximate fuel preset",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "LHV",
+    "confidence": "illustrative_reference"
+  },
+  {
+    "id": "coal-lhv",
+    "name": "Coal on LHV basis",
+    "category": "chemical",
+    "carrier": "chemical fuel",
+    "basis": "approximate chemical exergy divided by lower heating value",
+    "quantity_unit": "MWh_LHV",
+    "exergy_factor": 1.05,
+    "factor_unit": "MWh_ex/MWh",
+    "reference": "declared LHV energy basis",
+    "boundary": "fuel inventory or fuel-flow meter",
+    "calculation": "approximate chemical exergy / LHV, rounded",
+    "adoption_note": "Use as an illustrative public web preset; use composition-specific values for engineering studies.",
+    "source": "Exergy Factor website approximate fuel preset",
+    "basis_type": "chemical_exergy_factor",
+    "fuel_basis": "LHV",
+    "confidence": "illustrative_reference"
   },
   {
     "id": "hot-water-storage-80c",
@@ -402,7 +582,11 @@
     "boundary": "storage discharge boundary",
     "calculation": "1 - 293.15 / 353.15",
     "adoption_note": "Use when comparing thermal storage against electric or chemical storage by useful work potential.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 80.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "thermal-oil-storage-150c",
@@ -417,7 +601,11 @@
     "boundary": "storage discharge boundary",
     "calculation": "1 - 293.15 / 423.15",
     "adoption_note": "Use for molten salt, thermal oil, or process-heat storage examples with declared sink conditions.",
-    "source": "computed from DiMurro 2026 thermal convention"
+    "source": "computed from DiMurro 2026 thermal convention",
+    "source_c": 150.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "computed_reference"
   },
   {
     "id": "electric-efficiency-savings",
@@ -432,7 +620,9 @@
     "boundary": "baseline and post-installation meters",
     "calculation": "Delta X_A = Delta E for delivered electricity",
     "adoption_note": "Use in IPMVP-style reports to show that 1 MWh electric savings avoids about 1 MWh_ex.",
-    "source": "DiMurro 2026 standards interface"
+    "source": "DiMurro 2026 standards interface",
+    "basis_type": "measurement",
+    "confidence": "reference_default"
   },
   {
     "id": "low-temp-heat-savings",
@@ -447,6 +637,10 @@
     "boundary": "baseline and post-installation heat meters",
     "calculation": "Delta X_A = 0.064 * Delta E",
     "adoption_note": "Use to distinguish low-temperature heat savings from equal-MWh electricity savings.",
-    "source": "DiMurro 2026 measurement protocol"
+    "source": "DiMurro 2026 measurement protocol",
+    "source_c": 40.0,
+    "sink_c": 20.0,
+    "basis_type": "thermal_carnot",
+    "confidence": "reference_default"
   }
 ]

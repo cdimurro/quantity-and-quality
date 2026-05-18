@@ -2,11 +2,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Iterable, Optional
 
 from .adoption import ADOPTION_FIELDS, COMMON_NOTATION_EXAMPLES, INPUT_PATTERNS, STANDARD_INTEGRATION_POINTS
 from .api import (
+    cooling as build_cooling,
+    electricity as build_electricity,
+    fuel as build_fuel,
     from_notation as build_from_notation,
     lookup as build_lookup,
     report as build_report,
@@ -17,6 +22,9 @@ from .clean import clean_file
 from .core import solar_exergy_rate
 from .records import REPORT_SCHEMA_VERSION
 from .reference import filter_reference_examples
+from .scenario import compare_scenario_file, scenario_to_markdown, scenario_to_table
+from .schema import load_record_schema
+from .web_export import write_web_data
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -24,6 +32,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="quantity-quality",
         description="Adopt quantity-plus-Exergy-Factor energy reporting.",
     )
+    parser.add_argument("--version", action="version", version=f"%(prog)s {_package_version()}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     report = subparsers.add_parser("report", help="Create one report: 1 MWh, fx = 0.73.")
@@ -59,6 +68,55 @@ def build_parser() -> argparse.ArgumentParser:
     solar.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     solar.set_defaults(func=cmd_solar)
 
+    calc = subparsers.add_parser("calc", help="Calculate common Quantity + Quality records.")
+    calc_subparsers = calc.add_subparsers(dest="calc_command", required=True)
+
+    calc_custom = calc_subparsers.add_parser("custom", help="Calculate from quantity, unit, and fx.")
+    calc_custom.add_argument("--quantity", type=float, required=True)
+    calc_custom.add_argument("--unit", required=True)
+    calc_custom.add_argument("--fx", "--exergy-factor", dest="exergy_factor", type=float, required=True)
+    _add_context_args(calc_custom)
+    calc_custom.add_argument("--label", default="")
+    calc_custom.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    calc_custom.set_defaults(func=cmd_report)
+
+    calc_thermal = calc_subparsers.add_parser("thermal", help="Calculate thermal Exergy Factor.")
+    calc_thermal.add_argument("--source-c", type=float, required=True)
+    calc_thermal.add_argument("--sink-c", type=float, default=None, help="Reference sink in C; defaults to 20 C.")
+    calc_thermal.add_argument("--quantity", type=float, default=1.0)
+    calc_thermal.add_argument("--unit", default="MWh_th")
+    _add_context_args(calc_thermal)
+    calc_thermal.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    calc_thermal.set_defaults(func=cmd_thermal)
+
+    calc_cooling = calc_subparsers.add_parser("cooling", help="Calculate cooling service Exergy Factor.")
+    calc_cooling.add_argument("--cold-service-c", type=float, required=True)
+    calc_cooling.add_argument("--ambient-sink-c", type=float, required=True)
+    calc_cooling.add_argument("--quantity", type=float, default=1.0)
+    calc_cooling.add_argument("--unit", default="MWh_cooling")
+    calc_cooling.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    calc_cooling.set_defaults(func=cmd_calc_cooling)
+
+    calc_electricity = calc_subparsers.add_parser("electricity", help="Calculate delivered electricity at fx = 1.")
+    calc_electricity.add_argument("--quantity", type=float, default=1.0)
+    calc_electricity.add_argument("--unit", default="MWh")
+    calc_electricity.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    calc_electricity.set_defaults(func=cmd_calc_electricity)
+
+    calc_fuel = calc_subparsers.add_parser("fuel", help="Calculate a bundled fuel preset.")
+    calc_fuel.add_argument("--fuel", required=True)
+    calc_fuel.add_argument("--basis", default="HHV")
+    calc_fuel.add_argument("--quantity", type=float, default=1.0)
+    calc_fuel.add_argument("--unit", default="")
+    calc_fuel.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    calc_fuel.set_defaults(func=cmd_calc_fuel)
+
+    calc_reference = calc_subparsers.add_parser("reference", help="Calculate from a bundled reference id.")
+    calc_reference.add_argument("id")
+    calc_reference.add_argument("--quantity", type=float, default=1.0)
+    calc_reference.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    calc_reference.set_defaults(func=cmd_lookup)
+
     lookup = subparsers.add_parser("lookup", help="Show one reference example.")
     lookup.add_argument("id")
     lookup.add_argument("--quantity", type=float, default=1.0)
@@ -76,14 +134,18 @@ def build_parser() -> argparse.ArgumentParser:
     examples.set_defaults(func=cmd_examples)
 
     annotate = subparsers.add_parser("annotate", help="Clean messy energy records into Quantity + Quality records.")
-    annotate.add_argument("input", help="Input .csv, .json, .jsonl, .ndjson, .xlsx, or .xls file")
-    annotate.add_argument("--output", "-o", default="", help="Optional output .csv, .json, .jsonl, or .ndjson file")
-    annotate.add_argument("--mapping", default="", help="JSON object or path mapping standard fields to source fields.")
-    annotate.add_argument("--defaults", default="", help="JSON object or path with default field values.")
-    annotate.add_argument("--default-sink-c", type=float, default=20.0)
-    annotate.add_argument("--no-default-sink", action="store_true", help="Do not assume T0 = 20 C for thermal records.")
-    annotate.add_argument("--json", action="store_true", help="Emit JSON summary instead of text.")
+    _add_clean_args(annotate)
     annotate.set_defaults(func=cmd_annotate)
+
+    clean = subparsers.add_parser("clean", help="Alias for annotate: clean messy energy records.")
+    _add_clean_args(clean)
+    clean.set_defaults(func=cmd_annotate)
+
+    compare_cmd = subparsers.add_parser("compare", help="Compare a scenario JSON/YAML file.")
+    compare_cmd.add_argument("scenario", help="Scenario .json, .yaml, or .yml file")
+    compare_cmd.add_argument("--format", choices=("table", "json", "markdown"), default="table")
+    compare_cmd.add_argument("--output", "-o", default="", help="Optional output file for JSON or Markdown.")
+    compare_cmd.set_defaults(func=cmd_compare)
 
     validate = subparsers.add_parser("validate", help="Validate/preview messy energy records.")
     validate.add_argument("input", help="Input .csv, .json, .jsonl, .ndjson, .xlsx, or .xls file")
@@ -96,7 +158,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     schema = subparsers.add_parser("schema", help="Show the minimum adoption fields.")
     schema.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    schema.add_argument("--json-schema", action="store_true", help="Emit the record JSON Schema.")
     schema.set_defaults(func=cmd_schema)
+
+    export_web = subparsers.add_parser("export-web-data", help="Export static website reference data.")
+    export_web.add_argument("--output", "-o", required=True, help="Output JSON file for website reference data.")
+    export_web.add_argument(
+        "--js-output",
+        default="",
+        help="Optional synchronous browser data bundle loaded before script.js.",
+    )
+    export_web.set_defaults(func=cmd_export_web_data)
 
     return parser
 
@@ -158,6 +230,34 @@ def cmd_solar(args: argparse.Namespace) -> int:
             reference_k,
         )
     _emit_report(report, args.json)
+    return 0
+
+
+def cmd_calc_cooling(args: argparse.Namespace) -> int:
+    record = build_cooling(
+        quantity=args.quantity,
+        unit=args.unit,
+        cold_service_c=args.cold_service_c,
+        ambient_sink_c=args.ambient_sink_c,
+    )
+    _emit_report(record.as_dict(), args.json)
+    return 0
+
+
+def cmd_calc_electricity(args: argparse.Namespace) -> int:
+    record = build_electricity(quantity=args.quantity, unit=args.unit)
+    _emit_report(record.as_dict(), args.json)
+    return 0
+
+
+def cmd_calc_fuel(args: argparse.Namespace) -> int:
+    record = build_fuel(
+        args.quantity,
+        args.fuel,
+        basis=args.basis,
+        unit=args.unit or None,
+    )
+    _emit_report(record.as_dict(), args.json)
     return 0
 
 
@@ -243,7 +343,26 @@ def cmd_validate(args: argparse.Namespace) -> int:
     return 0 if summary["ok"] else 2
 
 
+def cmd_compare(args: argparse.Namespace) -> int:
+    result = compare_scenario_file(args.scenario)
+    if args.format == "json":
+        text = json.dumps(result, indent=2) + "\n"
+    elif args.format == "markdown":
+        text = scenario_to_markdown(result)
+    else:
+        text = scenario_to_table(result) + "\n"
+    if args.output:
+        Path(args.output).write_text(text, encoding="utf-8")
+        print(f"wrote: {args.output}")
+    else:
+        print(text, end="")
+    return 0
+
+
 def cmd_schema(args: argparse.Namespace) -> int:
+    if args.json_schema:
+        _emit_json(load_record_schema())
+        return 0
     payload = {
         "schema_version": REPORT_SCHEMA_VERSION,
         "recommended_fields": ADOPTION_FIELDS,
@@ -266,6 +385,16 @@ def cmd_schema(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export_web_data(args: argparse.Namespace) -> int:
+    payload = write_web_data(args.output, js_output=args.js_output or None)
+    print(f"wrote: {args.output}")
+    if args.js_output:
+        print(f"wrote: {args.js_output}")
+    print(f"schema: {payload['schema_version']}")
+    print(f"presets: {len(payload['presets'])}")
+    return 0
+
+
 def _add_context_args(
     parser: argparse.ArgumentParser,
     *,
@@ -275,6 +404,17 @@ def _add_context_args(
     parser.add_argument("--reference", default=reference)
     parser.add_argument("--boundary", default=boundary)
     parser.add_argument("--operating-basis", default="")
+
+
+def _add_clean_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("input", help="Input .csv, .json, .jsonl, .ndjson, .xlsx, or .xls file")
+    parser.add_argument("--output", "-o", default="", help="Optional output .csv, .json, .jsonl, or .ndjson file")
+    parser.add_argument("--mapping", default="", help="JSON object or path mapping standard fields to source fields.")
+    parser.add_argument("--defaults", default="", help="JSON object or path with default field values.")
+    parser.add_argument("--default-sink-c", type=float, default=20.0)
+    parser.add_argument("--no-default-sink", action="store_true", help="Do not assume T0 = 20 C for thermal records.")
+    parser.add_argument("--json", action="store_true", help="Emit JSON summary instead of text.")
+
 
 def _emit_report(payload: dict, as_json: bool) -> None:
     if as_json:
@@ -314,3 +454,15 @@ def _load_json_arg(value: str) -> Optional[dict]:
     if not isinstance(data, dict):
         raise ValueError("mapping/defaults must be a JSON object")
     return data
+
+
+def _package_version() -> str:
+    try:
+        return version("quantity-quality")
+    except PackageNotFoundError:
+        pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
+        if pyproject.exists():
+            match = re.search(r'^version = "([^"]+)"', pyproject.read_text(encoding="utf-8"), flags=re.MULTILINE)
+            if match:
+                return match.group(1)
+        return "0.0.0+local"

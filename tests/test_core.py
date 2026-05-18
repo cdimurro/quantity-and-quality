@@ -10,6 +10,7 @@ from quantity_quality import (
     ReferenceContext,
     annotate_file,
     annotate_record,
+    build_web_data,
     chemical_exergy_factor,
     clean_dataframe,
     clean_file,
@@ -18,21 +19,28 @@ from quantity_quality import (
     clean_sql,
     clean_stream,
     compare,
+    compare_scenario_file,
+    cooling_exergy_factor_c,
     electricity,
     exergy_unit,
     fuel,
     format_energy_notation,
     get_reference_example,
+    load_record_schema,
     load_reference_examples,
     lookup,
     parse_energy_notation,
     petela_exergy_factor,
     report,
     source_temperature_for_fx_c,
+    scenario_to_markdown,
+    scenario_to_table,
     thermal,
     thermal_exergy_factor_c,
     weighted_exergy_factor,
+    write_web_data,
 )
+from quantity_quality.reference import extract_temperature_context
 
 
 def test_thermal_exergy_factor_matches_paper_reference_values():
@@ -79,6 +87,48 @@ def test_reference_examples_are_bundled():
     assert len(examples) >= 20
     heat = get_reference_example("heat-80c-standard")
     assert heat["exergy_factor"] == pytest.approx(0.170, abs=0.001)
+
+
+def test_reference_examples_are_self_consistent():
+    required = {
+        "id",
+        "name",
+        "category",
+        "carrier",
+        "basis",
+        "quantity_unit",
+        "exergy_factor",
+        "reference",
+        "boundary",
+        "calculation",
+        "source",
+        "basis_type",
+        "confidence",
+    }
+    for example in load_reference_examples():
+        assert required <= set(example)
+        assert isinstance(example["exergy_factor"], (int, float))
+        assert example["exergy_factor"] >= 0
+
+        context = extract_temperature_context(example)
+        if "Carnot factor" in example["basis"] and "source_c" in context:
+            assert "source_c" in example
+            assert "sink_c" in example
+            assert example["exergy_factor"] == pytest.approx(
+                thermal_exergy_factor_c(context["source_c"], context["sink_c"]),
+                abs=0.001,
+            )
+        if example["category"] == "cooling":
+            assert "cold_service_c" in example
+            assert "ambient_sink_c" in example
+            assert example["exergy_factor"] == pytest.approx(
+                cooling_exergy_factor_c(context["cold_service_c"], context["ambient_sink_c"]),
+                abs=0.001,
+            )
+        if example["category"] == "chemical":
+            assert example["quantity_unit"].endswith(("_HHV", "_LHV"))
+            assert "basis" in example["reference"].lower()
+            assert example["fuel_basis"] in {"HHV", "LHV"}
 
 
 def test_invalid_thermal_factor_rejects_reversed_temperatures():
@@ -181,6 +231,51 @@ def test_fuel_preset_and_comparison_helpers():
     assert gas.fx == pytest.approx(0.93)
     assert rows[0]["label"] == "natural gas on HHV basis"
     assert rows[0]["accessible_exergy_mwh"] > rows[1]["accessible_exergy_mwh"]
+
+
+def test_web_export_uses_canonical_reference_values(tmp_path):
+    data = build_web_data()
+    assert data["schema_version"] == "exergy_factor_web_data_v1"
+    assert data["presets"]["naturalGasHhv"]["fx"] == pytest.approx(0.93)
+    assert data["presets"]["hydrogenLhv"]["fx"] == pytest.approx(0.98)
+    assert data["presets"]["heat80"]["sourceC"] == 80
+    assert data["presets"]["heat80"]["sinkC"] == 20
+
+    output = tmp_path / "reference_examples.json"
+    js_output = tmp_path / "reference_examples.js"
+    write_web_data(output, js_output=js_output)
+    assert '"naturalGasHhv"' in output.read_text(encoding="utf-8")
+    assert js_output.read_text(encoding="utf-8").startswith("window.EXERGY_FACTOR_REFERENCE_DATA = ")
+
+
+def test_record_json_schema_is_packaged():
+    schema = load_record_schema()
+    assert schema["title"] == "Quantity + Quality Energy Record"
+    assert "exergy_factor" in schema["properties"]
+    assert "unit" in schema["required"]
+
+
+def test_scenario_comparison_json_and_markdown(tmp_path):
+    scenario_path = tmp_path / "scenario.json"
+    scenario_path.write_text(
+        """
+{
+  "name": "test scenario",
+  "demand": {"label": "80 C demand", "quantity": 1, "unit": "MWh_th", "source_c": 80, "sink_c": 20},
+  "options": [
+    {"id": "grid", "label": "Grid electricity", "type": "electricity", "quantity": 1, "unit": "MWh", "cost_per_mwh": 70},
+    {"id": "heat", "label": "80 C heat", "quantity": 1, "unit": "MWh_th", "source_c": 80, "sink_c": 20, "cost_per_mwh": 20}
+  ]
+}
+""".strip(),
+        encoding="utf-8",
+    )
+    result = compare_scenario_file(scenario_path)
+    assert result["schema_version"] == "quantity_quality_scenario_v1"
+    assert result["rows"][0]["accessible_exergy_mwh"] == pytest.approx(1.0)
+    assert result["rows"][1]["accessible_exergy_mwh"] == pytest.approx(0.17, abs=0.001)
+    assert "Grid electricity" in scenario_to_table(result)
+    assert "| Option | Energy | fx |" in scenario_to_markdown(result)
 
 
 def test_annotate_file_returns_records_and_can_write(tmp_path):

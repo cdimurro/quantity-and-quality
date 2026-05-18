@@ -49,6 +49,20 @@ def filter_reference_examples(
 def extract_temperature_context(record: dict) -> dict:
     """Extract simple temperature metadata from bundled reference examples."""
 
+    explicit = {
+        "source_c": record.get("source_c"),
+        "sink_c": record.get("sink_c"),
+        "cold_service_c": record.get("cold_service_c"),
+        "ambient_sink_c": record.get("ambient_sink_c"),
+    }
+    explicit = {
+        key: float(value)
+        for key, value in explicit.items()
+        if value not in (None, "")
+    }
+    if explicit:
+        return explicit
+
     text = " ".join(str(record.get(key, "")) for key in ("name", "basis", "calculation"))
     thermal = re.search(
         r"(?:source|storage temperature)\s*=\s*(?P<source>-?\d+(?:\.\d+)?)\s*C"

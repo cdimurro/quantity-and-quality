@@ -1,23 +1,23 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "quantity-quality"
-version = "0.3.0"
+version = "0.4.0"
 description = "Adoption tools for reporting energy quantity together with Exergy Factor."
 readme = "README.md"
 requires-python = ">=3.9"
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
   { name = "Christopher DiMurro", email = "chrisdimurro@gmail.com" }
 ]
 keywords = ["energy", "exergy", "thermodynamics", "energy reporting", "measurement"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 4 - Beta",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Developers",
-  "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3 :: Only",
   "Topic :: Scientific/Engineering",
@@ -26,10 +26,14 @@ classifiers = [
 [project.urls]
 Homepage = "https://github.com/cdimurro/quantity-and-quality"
 Repository = "https://github.com/cdimurro/quantity-and-quality"
+Changelog = "https://github.com/cdimurro/quantity-and-quality/blob/main/CHANGELOG.md"
 Paper = "https://github.com/cdimurro/quantity-and-quality/blob/main/paper/quantity-and-quality-standard-reporting-framework.pdf"
 
 [project.optional-dependencies]
 data = ["pandas>=2.0", "openpyxl>=3.1"]
+scenario = ["PyYAML>=6.0"]
+dev = ["pytest>=8.0", "build>=1.2", "twine>=5.0"]
+all = ["pandas>=2.0", "openpyxl>=3.1", "PyYAML>=6.0"]
 
 [project.scripts]
 quantity-quality = "quantity_quality.cli:main"

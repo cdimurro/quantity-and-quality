@@ -15,6 +15,7 @@ quantity-quality annotate examples/adoption_records.csv --output runtime/adoptio
 
 - `reference_examples.json` - canonical data source.
 - `reference_examples.csv` - spreadsheet-friendly export generated from the JSON file.
+- `quantity_quality_record.schema.json` - JSON Schema for interoperable records.
 
 ## Field dictionary
 
@@ -31,6 +32,13 @@ quantity-quality annotate examples/adoption_records.csv --output runtime/adoptio
 - `calculation` - concise calculation note.
 - `adoption_note` - practical use note.
 - `source` - origin of the example value.
+- `source_c` - explicit thermal source temperature in C, when relevant.
+- `sink_c` - explicit thermal sink/reference temperature in C, when relevant.
+- `cold_service_c` - explicit cooling service temperature in C, when relevant.
+- `ambient_sink_c` - explicit cooling heat-rejection temperature in C, when relevant.
+- `basis_type` - machine-readable calculation class such as `thermal_carnot`, `cooling_service`, `chemical_exergy_factor`, or `work_equivalent`.
+- `fuel_basis` - fuel denominator such as `HHV` or `LHV`, when relevant.
+- `confidence` - use class such as `framework_convention`, `computed_reference`, `reference_default`, or `illustrative_reference`.
 
 Rows in operational spreadsheets can use `reference_id` to copy a bundled example's `exergy_factor`, `reference`, `boundary`, and `basis` into an annotated output file.
 

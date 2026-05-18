@@ -69,10 +69,26 @@ from .records import (
     annotate_records,
     validation_summary,
 )
+from .scenario import (
+    SCENARIO_SCHEMA_VERSION,
+    compare_scenario,
+    compare_scenario_file,
+    load_scenario,
+    record_from_mapping,
+    scenario_to_markdown,
+    scenario_to_table,
+)
+from .schema import RECORD_SCHEMA_ID, load_record_schema, minimum_record_fields
 from .reference import (
     filter_reference_examples,
     get_reference_example,
     load_reference_examples,
+)
+from .web_export import (
+    WEB_DATA_SCHEMA_VERSION,
+    WEB_PRESET_REFERENCE_IDS,
+    build_web_data,
+    write_web_data,
 )
 
 __all__ = [
@@ -86,6 +102,7 @@ __all__ = [
     "PowerReport",
     "QuantityQualityRecord",
     "REPORT_SCHEMA_VERSION",
+    "SCENARIO_SCHEMA_VERSION",
     "ReferenceContext",
     "ReferenceEnvironment",
     "STANDARD_INTEGRATION_POINTS",
@@ -141,4 +158,17 @@ __all__ = [
     "weighted_exergy_factor",
     "write_clean_records",
     "normalize_record",
+    "compare_scenario",
+    "compare_scenario_file",
+    "load_record_schema",
+    "load_scenario",
+    "minimum_record_fields",
+    "record_from_mapping",
+    "RECORD_SCHEMA_ID",
+    "scenario_to_markdown",
+    "scenario_to_table",
+    "WEB_DATA_SCHEMA_VERSION",
+    "WEB_PRESET_REFERENCE_IDS",
+    "build_web_data",
+    "write_web_data",
 ]
