@@ -24,5 +24,6 @@ runtime/
 # merely untracked.
 paper/*
 !paper/quantity-and-quality-standard-reporting-framework.pdf
-scripts/
+scripts/*
+!scripts/sync_reference_data.py
 nul
