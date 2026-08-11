@@ -180,6 +180,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_web.set_defaults(func=cmd_export_web_data)
 
+    serve_api = subparsers.add_parser("serve-api", help="Run the deterministic Quantity + Quality HTTP API.")
+    serve_api.add_argument("--host", default="127.0.0.1")
+    serve_api.add_argument("--port", type=int, default=8000)
+    serve_api.add_argument("--reload", action="store_true", help="Reload on code changes during local development.")
+    serve_api.set_defaults(func=cmd_serve_api)
 
     return parser
 
@@ -429,6 +434,19 @@ def cmd_export_web_data(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_serve_api(args: argparse.Namespace) -> int:
+    try:
+        import uvicorn  # type: ignore
+    except ImportError as exc:
+        raise SystemExit("API server requires: pip install quantity-quality[api]") from exc
+    uvicorn.run(
+        "quantity_quality.api_server:create_app",
+        factory=True,
+        host=args.host,
+        port=args.port,
+        reload=args.reload,
+    )
+    return 0
 
 
 def _add_context_args(
