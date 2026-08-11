@@ -16,3 +16,13 @@ runtime/
 *.out
 *.xdv
 *.toc
+
+# Paper drafts, build artifacts and figure scripts stay out of the repo: they are
+# ~3 MB of superseded revisions that would sit in every clone forever. The one
+# published PDF is tracked; the drafts belong in a Zenodo deposit or a release
+# asset. A `git add -A` swept them in once, so they are ignored rather than
+# merely untracked.
+paper/*
+!paper/quantity-and-quality-standard-reporting-framework.pdf
+scripts/
+nul
