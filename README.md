@@ -76,13 +76,15 @@ For local development:
 python -m pip install -e ".[all,dev]"
 ```
 
-YAML scenario files require the optional scenario extra:
+YAML scenario files require the optional scenario extra, and the HTTP API
+requires the `api` extra:
 
 ```bash
 python -m pip install "quantity-and-quality[scenario]"
+python -m pip install "quantity-and-quality[api]"
 ```
 
-If the package is not yet published to PyPI, install directly from GitHub:
+To install the unreleased development version directly from GitHub:
 
 ```bash
 python -m pip install git+https://github.com/cdimurro/quantity-and-quality.git
