@@ -96,6 +96,7 @@ from .adoption import (
     STANDARD_INTEGRATION_POINTS,
 )
 from .model import QuantityQualityRecord
+from .clean import steam_saturation_temperature_c
 from .units import (
     canonical_energy_unit,
     convert_energy,
@@ -196,6 +197,7 @@ __all__ = [
     "get_tier_definition",
     "infer_fidelity_tier",
     "canonical_energy_unit",
+    "steam_saturation_temperature_c",
     "is_energy_unit",
     "is_non_energy_unit",
     "is_power_unit",

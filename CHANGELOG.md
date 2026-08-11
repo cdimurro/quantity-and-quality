@@ -1,5 +1,50 @@
 # Changelog
 
+## 0.7.0 - Made usable on a real spreadsheet
+
+A representative facility export — Site / Meter / Month / Usage / Units / Notes,
+with therms, ton-hours, MMBtu and gallons in it — produced **zero** usable
+records out of eight. It now produces six, and the two it refuses it refuses for
+good reasons.
+
+### Fixed
+
+- **The reporter's own columns are kept.** The CSV writer excluded the source
+  record, so Site, Meter, Month and Notes vanished and results could not be
+  joined back to the data they came from. Output is now the original columns
+  first and unchanged, then the essential few. `--detailed` restores the full
+  set. A reporter's own `fx` column keeps its name; the computed one becomes
+  `qq_fx`.
+- **Ordinary words are understood.** "Main electric", "Natural gas boiler",
+  "Chilled water" and similar are read from values and column headers and mapped
+  to the bundled reference examples, which already held the answers. Every match
+  is recorded as a presumptive assumption naming the text it matched, and
+  anything stated explicitly always wins.
+- **A temperature written in prose is read.** `exhaust ~340F`, `44F supply`,
+  `delivered at 80 C`. A unit letter must be a whole word, so `845000 kWh` is
+  never read as 845000 K.
+- **Steam pressure becomes a delivery temperature.** `supply 165 psig` resolves
+  through a saturation table to 189 C. Saturated steam is assumed and the record
+  says so.
+- **Real utility units convert.** therms (plural), dekatherms, ton-hours and
+  their spellings reach a comparable `MWh_ex`. Previously `therm` worked and
+  `therms` silently produced nothing, which is worse than refusing.
+- **Volumes are never given an Exergy Factor.** Gallons, litres, ccf, barrels and
+  masses are refused with instructions, because a factor is work potential per
+  unit *energy*: `4100 gallons, fx = 1.060` reads like a result and is not one.
+- **Cooling read from prose gets an ambient.** A service temperature alone left
+  the row unanswerable on a missing ambient.
+- The "not enough information" message now names what a person actually has — a
+  temperature, a fuel and basis, a reference id — instead of four internal field
+  names, one of which was the number they came for.
+
+### Changed
+
+- **An exact Exergy Factor is no longer padded.** Electricity reads `fx = 1.0`,
+  not `fx = 1.000`: it is 1 by definition, not 1 measured to three decimals.
+  Computed factors still keep their trailing zeros (`0.170`, `0.730`), which is
+  what states the precision being claimed.
+
 ## 0.6.0 - The Full Operational Notation
 
 The paper defines a completely specified stream declaration as

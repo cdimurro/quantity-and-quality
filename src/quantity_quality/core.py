@@ -152,22 +152,24 @@ def accessible_exergy(quantity_or_power: Number, exergy_factor: Number) -> float
 
 
 def format_exergy_factor(exergy_factor: Number, precision: int = 3) -> str:
-    """Format an Exergy Factor for public notation, at fixed width.
+    """Format an Exergy Factor for public notation.
 
-    The Exergy Factor keeps its trailing zeros: `0.170`, not `0.17`, and `1.000`,
-    not `1`. The framework's notation is a fixed-width field, exactly as the paper
-    writes it in both of its worked examples, and the trailing digits are the
-    reader's evidence of the precision being claimed. Stripping them also made the
-    published figure disagree in appearance with the value a reader recomputes
-    (1 - 293.15/353.15 = 0.16990 -> 0.170), which undercuts the one-step check the
-    notation exists to support.
+    A COMPUTED factor keeps its trailing zeros: `0.170`, not `0.17`, and `0.730`,
+    not `0.73`. Those digits are the reader's evidence of the precision being
+    claimed, and dropping them made the published figure look different from the
+    value a reader recomputes (1 - 293.15/353.15 = 0.16990 -> 0.170).
 
-    The QUANTITY is deliberately not treated this way — the paper writes `1 MWh`,
-    not `1.000 MWh`. Only the factor is a fixed-width field.
+    An EXACT factor is not padded. Electricity is 1 by definition, not 1 measured
+    to three decimals, so it reads `fx = 1.0`. Padding it to `1.000` dresses a
+    definition up as a measurement and is just noise on the page.
+
+    The quantity is never padded either — `1 MWh`, not `1.000 MWh`.
     """
 
     factor = float(exergy_factor)
     _require_valid_factor(factor)
+    if factor == int(factor):
+        return f"{int(factor)}.0"
     return f"{factor:.{precision}f}"
 
 

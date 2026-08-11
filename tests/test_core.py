@@ -37,6 +37,7 @@ from quantity_quality import (
     infer_fidelity_tier,
     is_energy_unit,
     is_non_energy_unit,
+    steam_saturation_temperature_c,
     list_carrier_registry,
     list_fidelity_tiers,
     get_reference_example,
@@ -177,7 +178,7 @@ def test_reference_environment_uses_paper_default():
 
 def test_common_examples_have_20_records():
     assert len(COMMON_NOTATION_EXAMPLES) == 20
-    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "845 kWh, fx = 1.000"
+    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "845 kWh, fx = 1.0"
 
 
 def test_annotate_record_from_reference_id():
@@ -447,15 +448,22 @@ def test_notation_matches_the_paper_exactly():
     record = thermal(1, "MWh_th", source_c=80, sink_c=20)
     assert record.full_notation == "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"
     # The paper's short form for an unambiguous stream keeps its trailing zeros.
-    assert electricity(1, "MWh").notation == "1 MWh, fx = 1.000"
+    assert electricity(1, "MWh").notation == "1 MWh, fx = 1.0"
 
 
-def test_the_factor_is_a_fixed_width_field_but_the_quantity_is_not():
-    # `1 MWh`, not `1.000 MWh` — only the factor is padded.
+def test_a_computed_factor_keeps_its_zeros_but_an_exact_one_is_not_padded():
+    # Trailing zeros on a computed value are the precision being claimed, so
+    # 0.170 rather than 0.17 and 0.730 rather than 0.73.
     assert format_exergy_factor(0.17) == "0.170"
-    assert format_exergy_factor(1) == "1.000"
+    assert format_exergy_factor(0.73) == "0.730"
     assert format_energy_notation(1, "MWh", 0.5) == "1 MWh, fx = 0.500"
     assert format_energy_notation(2.738, "kWh_th", 0.64) == "2.738 kWh_th, fx = 0.640"
+    # Electricity is 1 BY DEFINITION, not 1 measured to three decimals. Padding a
+    # definition to 1.000 dresses it up as a measurement and is noise on the page.
+    assert format_exergy_factor(1) == "1.0"
+    assert format_energy_notation(1, "MWh", 1.0) == "1 MWh, fx = 1.0"
+    # The quantity is never padded either.
+    assert format_energy_notation(1, "MWh", 0.17).startswith("1 MWh")
 
 
 def test_full_declaration_round_trips():
@@ -494,8 +502,8 @@ def test_a_wrong_factor_is_caught():
 def test_an_unverifiable_record_is_not_reported_as_wrong():
     # A short-form record contradicts nothing; there is simply nothing to check
     # against. Returning "wrong" here would brand every legitimate
-    # `1 MWh, fx = 1.000` as suspect.
-    check = verify_notation("1 MWh, fx = 1.000")
+    # `1 MWh, fx = 1.0` as suspect.
+    check = verify_notation("1 MWh, fx = 1.0")
     assert not check.verifiable
     assert "T0" in check.reason
 
@@ -584,6 +592,45 @@ def test_a_volume_is_never_given_an_exergy_factor():
     assert "heating value" in message
 
 
+def test_a_temperature_written_in_a_notes_column_is_read():
+    # The single most common way a real export carries the one fact that decides
+    # the Exergy Factor. These rows used to ask the reporter for a number they had
+    # already written down.
+    hot = clean_records([
+        {"Meter": "Waste heat recovered", "Usage": 430, "Units": "MMBtu", "Notes": "exhaust ~340F"},
+    ])[0]
+    assert hot["fx"] == pytest.approx(0.340, abs=0.002)
+    assert any("340" in a for a in hot["assumptions"])
+
+    cold = clean_records([
+        {"Meter": "Chilled water", "Usage": 910, "Units": "ton-hours", "Notes": "44F supply"},
+    ])[0]
+    # Below ambient is a cooling service, and it needs an ambient to be held
+    # against — supplying only the service temperature left it unanswerable.
+    assert cold["fx"] == pytest.approx(0.048, abs=0.002)
+    assert cold["accessible_exergy_mwh"] is not None
+
+
+def test_a_unit_name_is_never_mistaken_for_a_temperature():
+    # "845000 kWh" must not read as 845000 K. The unit letter has to be a whole
+    # word or every electricity row acquires a source hotter than the sun.
+    record = clean_records([{"Meter": "Main electric", "Usage": 845000, "Units": "kWh"}])[0]
+    assert record["fx"] == 1.0
+    assert "source_c" not in record or record.get("source_c") in (None, "")
+
+
+def test_steam_pressure_becomes_a_delivery_temperature():
+    # A plant records pressure; the Exergy Factor needs the temperature the heat
+    # is delivered at. 165 psig is 12.4 bar absolute, saturating near 189 C.
+    assert steam_saturation_temperature_c(1.01325) == pytest.approx(100.0, abs=0.5)
+    assert steam_saturation_temperature_c(10.0) == pytest.approx(179.9, abs=0.5)
+    record = clean_records([
+        {"Meter": "Steam header", "Usage": 2738, "Units": "kWh", "Notes": "supply 165 psig"},
+    ])[0]
+    assert record["fx"] == pytest.approx(0.366, abs=0.005)
+    assert any("saturat" in a for a in record["assumptions"])
+
+
 def test_a_ton_hour_is_energy_not_a_ton():
     # `ton_hour` splits on the underscore to the mass unit `ton` plus a `_hour`
     # carrier suffix, which rejected every chilled-water row in a building export.
@@ -601,7 +648,7 @@ def test_cli_verify_exit_code_can_gate_a_pipeline(capsys):
     assert main(["verify", "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"]) == 0
     assert main(["verify", "1 MWh_th, fx = 0.900 [Th = 80 C, T0 = 20 C]"]) == 1
     # An unverifiable record has not been contradicted, so it must not fail a build.
-    assert main(["verify", "1 MWh, fx = 1.000"]) == 0
+    assert main(["verify", "1 MWh, fx = 1.0"]) == 0
     assert "MISMATCH" in capsys.readouterr().out
 
 

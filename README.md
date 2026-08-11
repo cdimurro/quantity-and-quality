@@ -106,7 +106,7 @@ Example output:
 
 ```text
 80 C heat to 20 C sink
-report: 1 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]
+report: 1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
 accessible exergy: 0.169899 MWh_ex
 ```
 
@@ -203,7 +203,7 @@ import quantity_quality as qq
 record = qq.thermal(1, "MWh_th", source_c=80, sink_c=20)
 
 print(record.full_notation)
-# 1 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]
+# 1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
 
 print(record.accessible_exergy, record.accessible_exergy_unit)
 # 0.169899... MWh_ex
@@ -215,7 +215,7 @@ Create a custom record:
 record = qq.report(1, "MWh", fx=0.73)
 
 print(record.notation)
-# 1 MWh, fx = 0.73
+# 1 MWh, fx = 0.730
 ```
 
 Use a bundled reference example:
@@ -224,7 +224,7 @@ Use a bundled reference example:
 record = qq.lookup("heat-80c-standard", quantity=1.8)
 
 print(record.full_notation)
-# 1.8 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]
+# 1.8 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
 ```
 
 Compare scenario files:
@@ -290,12 +290,12 @@ Examples with a 20 °C reference sink:
 
 | Stream | Conventional Report | Quantity + Exergy Factor |
 |---|---:|---:|
-| Electricity | `1 MWh` | `1 MWh, fx = 1.000` |
+| Electricity | `1 MWh` | `1 MWh, fx = 1.0` |
 | Heat at 150 °C | `1 MWh_th` | `1 MWh_th, fx = 0.307` |
 | Heat at 80 °C | `1 MWh_th` | `1 MWh_th, fx = 0.170` |
 | Heat at 40 °C | `1 MWh_th` | `1 MWh_th, fx = 0.064` |
-| Methane, HHV basis | `1 MWh_HHV` | `1 MWh_HHV, fx = 0.93` |
-| Hydrogen, HHV basis | `1 MWh_HHV` | `1 MWh_HHV, fx = 0.83` |
+| Methane, HHV basis | `1 MWh_HHV` | `1 MWh_HHV, fx = 0.930` |
+| Hydrogen, HHV basis | `1 MWh_HHV` | `1 MWh_HHV, fx = 0.830` |
 
 The Exergy Factor helps reveal:
 
@@ -422,21 +422,24 @@ This keeps the Python library and public calculator aligned around one source of
 
 ## Reporting Notation
 
-The Exergy Factor is a **fixed-width field**: `0.170`, not `0.17`, and `1.000`,
-not `1`. The trailing digits state the precision being claimed, and they make the
-published figure look like the value a reader recomputes. The quantity is not
-padded — `1 MWh`, not `1.000 MWh`.
+A **computed** Exergy Factor keeps its trailing zeros: `0.170`, not `0.17`, and
+`0.730`, not `0.73`. Those digits state the precision being claimed, and they
+make the published figure look like the value a reader recomputes.
+
+An **exact** factor is not padded. Electricity is 1 by definition, not 1 measured
+to three decimals, so it reads `fx = 1.0`. The quantity is never padded either —
+`1 MWh`, not `1.000 MWh`.
 
 ### Short notation
 
 Use this when the reference convention is already known, the carrier is unambiguous, or the value is being used in a compact dashboard, invoice, spreadsheet, or chart.
 
 ```text
-1 MWh, fx = 1.000
+1 MWh, fx = 1.0
 ```
 
 A short-form record is not verifiable from itself. That is a legitimate choice
-for electricity, where `fx = 1.000` regardless of the sink — but it is a choice,
+for electricity, where `fx = 1.0` regardless of the sink — but it is a choice,
 and the reader should be able to tell that it was made.
 
 ### Full notation

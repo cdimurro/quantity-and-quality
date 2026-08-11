@@ -459,12 +459,30 @@ def normalize_record(
     _infer_carrier_from_context(normalized, warnings)
     _normalize_fx(normalized, source, warnings)
     _apply_fuel_reference(normalized)
+    # A temperature the reporter wrote in prose beats a generic carrier default,
+    # so this runs first: "44F supply" should rate that chilled water at 44 F, not
+    # at the registry's stock 7 C service.
+    _infer_temperature_from_text(source, normalized, assumptions)
+    _infer_carrier_from_context(normalized, warnings)
     # Last resort, after every explicit route has had its chance.
     _infer_reference_from_text(source, normalized, assumptions)
 
     if assume_default_sink and normalized.get("source_c") not in (None, "") and normalized.get("sink_c") in (None, ""):
         normalized["sink_c"] = default_sink_c
         assumptions.append(f"default reference sink assumed: T0 = {default_sink_c:g} C")
+
+    # A cooling service needs BOTH its own temperature and the ambient it is held
+    # against. Reading "44F supply" out of a notes column supplied the first and
+    # left the second blank, so a row that had just become answerable failed on
+    # "ambient_sink_c is required" — a worse outcome than before the temperature
+    # was read at all.
+    if (
+        assume_default_sink
+        and normalized.get("cold_service_c") not in (None, "")
+        and normalized.get("ambient_sink_c") in (None, "")
+    ):
+        normalized["ambient_sink_c"] = default_sink_c
+        assumptions.append(f"ambient assumed for the cooling service: T0 = {default_sink_c:g} C")
 
     if warnings:
         normalized["_warnings"] = [*normalized.get("_warnings", []), *warnings]
@@ -565,6 +583,132 @@ def _convert_temperatures(normalized: dict[str, Any], warnings: list[str]) -> No
             continue
         normalized[target_field] = converter(value)
         warnings.append(f"converted {source_field} to {target_field}")
+
+
+# A temperature written into ordinary text: "exhaust ~340F", "delivered at 80 C",
+# "44F supply", "150 degC".
+#
+# The unit letter must be a whole word. Without that guard, "845000 kWh" reads as
+# 845000 K and every electricity row acquires a source temperature hotter than the
+# sun. `(?![A-Za-z])` is doing real work here.
+_TEXT_TEMP_RE = re.compile(
+    r"(?<![\d.])(?P<value>-?\d{1,4}(?:\.\d+)?)\s*(?:°|º)?\s*"
+    r"(?:deg(?:rees)?\.?\s*)?(?P<unit>[CFK])(?![A-Za-z])",
+)
+
+# Saturated steam: gauge or absolute pressure is what a plant records, but the
+# Exergy Factor needs the temperature the heat is actually delivered at. Water
+# saturation temperature against absolute pressure, bar -> degrees C.
+_STEAM_SATURATION_BAR_C = (
+    (0.5, 81.32), (1.0, 99.61), (1.013, 100.00), (1.5, 111.35), (2.0, 120.21),
+    (3.0, 133.53), (4.0, 143.61), (5.0, 151.83), (6.0, 158.83), (8.0, 170.41),
+    (10.0, 179.89), (12.0, 187.96), (15.0, 198.30), (20.0, 212.38), (25.0, 223.95),
+    (30.0, 233.85), (40.0, 250.36), (50.0, 263.94),
+)
+
+_PSIG_RE = re.compile(r"(?<![\d.])(?P<value>\d{1,4}(?:\.\d+)?)\s*(?P<unit>psig|psia|psi|barg|bara|bar|kpa)(?![a-z])", re.IGNORECASE)
+
+_ATMOSPHERIC_BAR = 1.01325
+
+
+def steam_saturation_temperature_c(pressure_bar_absolute: float) -> Optional[float]:
+    """Saturation temperature of water at an absolute pressure, in degrees C.
+
+    Linear interpolation over a standard steam table. Adequate for the screening
+    this framework does; it is not a substitute for IAPWS-IF97 in a design
+    calculation, and the record says so.
+    """
+
+    pressure = float(pressure_bar_absolute)
+    table = _STEAM_SATURATION_BAR_C
+    if pressure < table[0][0] or pressure > table[-1][0]:
+        return None
+    for (low_p, low_t), (high_p, high_t) in zip(table, table[1:]):
+        if low_p <= pressure <= high_p:
+            if high_p == low_p:
+                return low_t
+            span = (pressure - low_p) / (high_p - low_p)
+            return low_t + span * (high_t - low_t)
+    return None
+
+
+def _steam_temperature_from_text(text: str) -> Optional[tuple[float, str]]:
+    """Read a steam pressure out of ordinary text and return its saturation temperature."""
+
+    match = _PSIG_RE.search(text)
+    if not match:
+        return None
+    value = float(match.group("value"))
+    unit = match.group("unit").lower()
+    if unit in {"psig", "psi"}:
+        bar_absolute = value * 0.0689476 + _ATMOSPHERIC_BAR
+    elif unit == "psia":
+        bar_absolute = value * 0.0689476
+    elif unit == "barg":
+        bar_absolute = value + _ATMOSPHERIC_BAR
+    elif unit in {"bar", "bara"}:
+        bar_absolute = value
+    else:  # kpa
+        bar_absolute = value / 100.0
+    temperature = steam_saturation_temperature_c(bar_absolute)
+    if temperature is None:
+        return None
+    return temperature, f"{match.group('value')} {match.group('unit')}"
+
+
+def _infer_temperature_from_text(
+    source: Mapping[str, Any],
+    normalized: dict[str, Any],
+    assumptions: list[str],
+) -> None:
+    """Read a delivery temperature out of the reporter's own words.
+
+    A temperature written in a notes column is the single most common way a real
+    export carries the one fact that decides the Exergy Factor — `exhaust ~340F`,
+    `supply 165 psig`, `44F supply`. It was being ignored, so those rows asked the
+    reporter for a number they had already written down.
+
+    Only runs when no temperature was supplied through a proper field.
+    """
+
+    if any(normalized.get(field) not in (None, "") for field in
+           ("source_c", "source_f", "source_k", "cold_service_c", "fx", "exergy_factor", "reference_id")):
+        return
+
+    for key, raw_value in source.items():
+        if raw_value in (None, ""):
+            continue
+        text = str(raw_value)
+        # A quantity column is a number, not a temperature; only prose can carry
+        # a temperature safely, and prose has a unit letter attached to it.
+        steam = _steam_temperature_from_text(text)
+        if steam is not None:
+            temperature, quoted = steam
+            normalized["source_c"] = round(temperature, 1)
+            assumptions.append(
+                f"source temperature {round(temperature, 1)} C read as the saturation temperature of "
+                f"steam at {quoted} (from '{key}'); saturated steam assumed, any superheat ignored"
+            )
+            return
+        match = _TEXT_TEMP_RE.search(text)
+        if match is None:
+            continue
+        value = float(match.group("value"))
+        unit = match.group("unit").upper()
+        if unit == "F":
+            celsius = (value - 32.0) * 5.0 / 9.0
+        elif unit == "K":
+            celsius = value - 273.15
+        else:
+            celsius = value
+        # Below ambient this is a cooling service, not a heat source.
+        field = "cold_service_c" if celsius < 15.0 else "source_c"
+        normalized[field] = round(celsius, 1)
+        assumptions.append(
+            f"{'cold service' if field == 'cold_service_c' else 'source'} temperature "
+            f"{round(celsius, 1)} C read from the text '{match.group(0).strip()}' in '{key}'"
+        )
+        return
 
 
 # Ordinary words people actually put in a meter register, mapped to the reference
