@@ -1,6 +1,14 @@
 # Quantity and Quality
 
+[![PyPI](https://img.shields.io/pypi/v/quantity-quality.svg)](https://pypi.org/project/quantity-quality/)
+[![Python](https://img.shields.io/pypi/pyversions/quantity-quality.svg)](https://pypi.org/project/quantity-quality/)
+[![CI](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml/badge.svg)](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A lightweight Python library and CLI for reporting **energy quantity** together with **energy quality**.
+
+**[Try it in your browser](https://exergyfactor.com)** · [Paper](paper/) ·
+[Adoption cookbook](docs/adoption-cookbook.md) · [Changelog](CHANGELOG.md)
 
 Instead of writing:
 
@@ -635,8 +643,44 @@ If you use this framework, examples, or code, please cite:
 
 After the arXiv version is available, replace this with the arXiv citation.
 
+Machine-readable citation metadata is in [`CITATION.cff`](CITATION.cff). GitHub
+renders a formatted citation from it via the **Cite this repository** button in
+the repository sidebar.
+
+---
+
+## Contributing
+
+Issues and pull requests are welcome, particularly:
+
+- **Reference examples** for carriers or processes not yet covered, with a
+  stated boundary, basis, and source. New examples belong in
+  `data/reference_examples.json` and should come with a test.
+- **Corrections to any published number.** If a reference value here is wrong,
+  that is the most valuable issue you can file — please include the working, not
+  just the corrected value.
+- **Adoption reports**: what broke when you pointed this at a real dataset.
+
+Before opening a pull request:
+
+```bash
+python -m pip install -e ".[all,dev]"
+python -m pytest -q
+```
+
+CI runs the test suite and a package build on Python 3.9 through 3.13.
+
+---
+
+## Related
+
+| | |
+|---|---|
+| **[exergyfactor.com](https://exergyfactor.com)** | Browser calculator built on this package's reference data. No install required. |
+| **[cdimurro/exergy-factor](https://github.com/cdimurro/exergy-factor)** | Source for that site. |
+
 ---
 
 ## License
 
-MIT
+[MIT](LICENSE) © 2026 Christopher DiMurro
