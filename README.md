@@ -1,7 +1,7 @@
 # Quantity and Quality
 
-[![PyPI](https://img.shields.io/pypi/v/quantity-quality.svg)](https://pypi.org/project/quantity-quality/)
-[![Python](https://img.shields.io/pypi/pyversions/quantity-quality.svg)](https://pypi.org/project/quantity-quality/)
+[![PyPI](https://img.shields.io/pypi/v/quantity-and-quality.svg)](https://pypi.org/project/quantity-and-quality/)
+[![Python](https://img.shields.io/pypi/pyversions/quantity-and-quality.svg)](https://pypi.org/project/quantity-and-quality/)
 [![CI](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml/badge.svg)](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
@@ -64,8 +64,11 @@ The package is designed to start simple: use reference defaults for screening, t
 From PyPI:
 
 ```bash
-python -m pip install quantity-quality
+python -m pip install quantity-and-quality
 ```
+
+The installed command is `quantity-quality` (no "and"), and the import name is
+`quantity_quality`.
 
 For local development:
 
@@ -76,7 +79,7 @@ python -m pip install -e ".[all,dev]"
 YAML scenario files require the optional scenario extra:
 
 ```bash
-python -m pip install "quantity-quality[scenario]"
+python -m pip install "quantity-and-quality[scenario]"
 ```
 
 If the package is not yet published to PyPI, install directly from GitHub:

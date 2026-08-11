@@ -438,7 +438,7 @@ def cmd_serve_api(args: argparse.Namespace) -> int:
     try:
         import uvicorn  # type: ignore
     except ImportError as exc:
-        raise SystemExit("API server requires: pip install quantity-quality[api]") from exc
+        raise SystemExit("API server requires: pip install quantity-and-quality[api]") from exc
     uvicorn.run(
         "quantity_quality.api_server:create_app",
         factory=True,
@@ -512,7 +512,7 @@ def _load_json_arg(value: str) -> Optional[dict]:
 
 def _package_version() -> str:
     try:
-        return version("quantity-quality")
+        return version("quantity-and-quality")
     except PackageNotFoundError:
         pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
         if pyproject.exists():

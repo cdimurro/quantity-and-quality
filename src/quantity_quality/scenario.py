@@ -33,7 +33,7 @@ def load_scenario(path: Union[str, Path]) -> dict:
         try:
             import yaml  # type: ignore
         except ImportError as exc:
-            raise ImportError("YAML scenarios require the 'scenario' extra: pip install quantity-quality[scenario]") from exc
+            raise ImportError("YAML scenarios require the 'scenario' extra: pip install quantity-and-quality[scenario]") from exc
         data = yaml.safe_load(text)
     else:
         raise ValueError("scenario files must be .json, .yaml, or .yml")

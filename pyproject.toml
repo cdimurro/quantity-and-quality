@@ -3,7 +3,7 @@ requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "quantity-quality"
+name = "quantity-and-quality"
 version = "0.5.0"
 description = "Adoption tools for reporting energy quantity together with Exergy Factor."
 readme = "README.md"

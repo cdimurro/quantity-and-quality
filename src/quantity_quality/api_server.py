@@ -7,7 +7,7 @@ try:
     from fastapi.middleware.cors import CORSMiddleware
     from pydantic import BaseModel, Field
 except ImportError as exc:  # pragma: no cover - exercised only without API extra
-    raise ImportError("API support requires: pip install quantity-quality[api]") from exc
+    raise ImportError("API support requires: pip install quantity-and-quality[api]") from exc
 
 from . import api as qq
 from .api_keys import (
