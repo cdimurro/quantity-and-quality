@@ -11,6 +11,8 @@ from .core import (
     petela_exergy_factor,
     thermal_exergy_factor_c,
 )
+from .diagnostics import exergy_capital_efficiency
+from .intervals import f3_thermal_summary, thermal_interval
 from .model import QuantityQualityRecord
 from .reference import extract_temperature_context, get_reference_example
 from .units import convert_energy, convert_power, is_energy_unit, is_power_unit
@@ -22,6 +24,20 @@ FUEL_FACTORS = {
     "methane": {"HHV": 0.93, "LHV": 1.04},
     "natural_gas": {"HHV": 0.93, "LHV": 1.04},
     "hydrogen": {"HHV": 0.83, "LHV": 0.98},
+    "diesel": {"LHV": 1.06},
+    "gasoline": {"LHV": 1.07},
+    "crude_oil": {"LHV": 1.06},
+    "coal": {"LHV": 1.05},
+}
+
+FUEL_SYMBOLS = {
+    "methane": "CH4",
+    "natural_gas": "NG",
+    "hydrogen": "H2",
+    "diesel": "diesel",
+    "gasoline": "gasoline",
+    "crude_oil": "crude",
+    "coal": "coal",
 }
 
 
@@ -36,6 +52,7 @@ def report(
     basis: str = "",
     label: Optional[str] = None,
     method: str = "supplied",
+    tier: str = "",
 ) -> QuantityQualityRecord:
     """Create the simplest possible Quantity + Quality record.
 
@@ -53,6 +70,7 @@ def report(
         boundary=boundary,
         basis=basis,
         method=method,
+        tier=tier,
         label=label,
         warnings=tuple(warnings),
     )
@@ -94,6 +112,7 @@ def thermal(
         boundary=boundary,
         basis=basis or f"Carnot factor, source={source_c:g} C, sink={sink_c:g} C",
         method="thermal",
+        tier="F2",
         label=label or f"{source_c:g} C heat to {sink_c:g} C sink",
         source_c=source_c,
         sink_c=sink_c,
@@ -118,6 +137,7 @@ def electricity(
         boundary=boundary,
         basis="electrical work potential per unit delivered electricity",
         method="electricity",
+        tier="F1",
         label=label or "electricity",
     )
 
@@ -145,6 +165,7 @@ def cooling(
             f"cold={cold_service_c:g} C, ambient={ambient_sink_c:g} C"
         ),
         method="cooling",
+        tier="F2",
         label=label or f"{cold_service_c:g} C cooling against {ambient_sink_c:g} C ambient",
         cold_service_c=cold_service_c,
         ambient_sink_c=ambient_sink_c,
@@ -172,6 +193,7 @@ def solar(
         boundary=boundary,
         basis=basis or "Petela radiation factor",
         method="solar",
+        tier="F2",
         label=label or f"solar radiation at {reference_c:g} C reference",
         sink_c=reference_c,
     )
@@ -198,6 +220,7 @@ def chemical(
         boundary=boundary,
         basis="chemical exergy divided by declared energy basis",
         method="chemical",
+        tier="F2",
         label=label or "chemical energy",
         energy_basis=basis_label,
         metadata={"chemical_exergy": chemical_exergy, "energy_basis": energy_basis},
@@ -223,16 +246,62 @@ def fuel(
         raise ValueError(f"unknown fuel/basis preset: {fuel} {basis}. Known fuels: {known}") from exc
     return QuantityQualityRecord(
         quantity=quantity,
-        unit=unit or f"MWh_{basis_key}",
+        unit=unit or _fuel_unit(fuel_key, basis_key),
         exergy_factor=factor,
         reference=f"declared {basis_key} energy basis",
         boundary=boundary,
         basis=f"chemical exergy divided by {basis_key}",
         method="fuel",
+        tier="F1",
         label=f"{fuel_key.replace('_', ' ')} on {basis_key} basis",
         fuel=fuel_key,
         energy_basis=basis_key,
     )
+
+
+def fission(
+    quantity: float,
+    fx: float,
+    *,
+    unit: str = "MWh_fission",
+    isotope: str = "",
+    enrichment: str = "",
+    burnup: str = "",
+    boundary: str = "nuclear fuel inventory",
+    label: Optional[str] = None,
+) -> QuantityQualityRecord:
+    """Create a nuclear fission fuel-inventory record.
+
+    No universal fission `fx` is assumed; callers must provide a declared factor
+    and enough fuel-cycle metadata for the record's intended use.
+    """
+
+    metadata = {
+        "isotope": isotope,
+        "enrichment": enrichment,
+        "burnup": burnup,
+    }
+    return QuantityQualityRecord(
+        quantity=quantity,
+        unit=unit,
+        exergy_factor=fx,
+        reference="declared nuclear fuel reference",
+        boundary=boundary,
+        basis="declared fission energy potential and fuel-cycle boundary",
+        method="fission",
+        tier="F2",
+        label=label or "nuclear fission energy potential",
+        metadata={key: value for key, value in metadata.items() if value},
+    )
+
+
+def exergy_capital_efficiency_for_record(
+    record: QuantityQualityRecord,
+    capital_cost: float,
+) -> float:
+    """Return ECE using a record's accessible exergy as the numerator."""
+
+    return exergy_capital_efficiency(record.accessible_exergy, capital_cost)
 
 
 def lookup(
@@ -259,6 +328,7 @@ def lookup(
         cold_service_c=temperatures.get("cold_service_c"),
         ambient_sink_c=temperatures.get("ambient_sink_c"),
         reference_id=reference_id,
+        tier=str(example.get("tier", "")) or "F1",
         metadata={
             "category": example.get("category", ""),
             "carrier": example.get("carrier", ""),
@@ -267,6 +337,11 @@ def lookup(
             "source": example.get("source", ""),
         },
     )
+
+
+def _fuel_unit(fuel_key: str, basis_key: str) -> str:
+    symbol = FUEL_SYMBOLS.get(fuel_key, fuel_key)
+    return f"MWh_{basis_key}_{symbol}"
 
 
 def source_temperature_for_fx_c(fx: float, *, sink_c: float = DEFAULT_SINK_C) -> float:

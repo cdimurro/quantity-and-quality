@@ -120,11 +120,17 @@ def annotate_record(raw: Mapping[str, object]) -> AnnotatedRecord:
             fuel=str(source.get("fuel", "")) or None,
             energy_basis=str(source.get("energy_basis", "")) or None,
             reference_id=str(source.get("reference_id", "")) or None,
+            tier=str(source.get("tier", source.get("fidelity_tier", ""))) or "",
             assumptions=tuple(assumptions),
             warnings=tuple(warnings),
             metadata={
                 "reference_source": (reference_record or {}).get("source", ""),
                 "calculation": (reference_record or {}).get("calculation", ""),
+                "stream_id": source.get("stream_id", ""),
+                "interval": source.get("interval", ""),
+                "timestamp": source.get("timestamp", ""),
+                "interval_start": source.get("interval_start", ""),
+                "interval_end": source.get("interval_end", ""),
             },
         )
         record.update(qq_record.as_dict())
@@ -217,6 +223,8 @@ def write_annotated_records(records: Sequence[AnnotatedRecord], path: Path) -> N
             "unit",
             "exergy_factor",
             "fx",
+            "tier",
+            "fidelity_tier",
             "notation",
             "accessible_exergy",
             "accessible_exergy_unit",
@@ -231,6 +239,7 @@ def write_annotated_records(records: Sequence[AnnotatedRecord], path: Path) -> N
             "method",
             "capabilities",
             "missing_context",
+            "conformance_issues",
             "source_c",
             "sink_c",
             "cold_service_c",
@@ -265,7 +274,7 @@ def validation_summary(records: Sequence[AnnotatedRecord]) -> dict:
 
 def _csv_record(record: Mapping[str, object], fields: Sequence[str]) -> dict:
     row = {field: record.get(field, "") for field in fields}
-    for field in ("warnings", "assumptions", "capabilities", "missing_context"):
+    for field in ("warnings", "assumptions", "capabilities", "missing_context", "conformance_issues"):
         if isinstance(row.get(field), list):
             row[field] = "; ".join(str(value) for value in row[field])
     return row

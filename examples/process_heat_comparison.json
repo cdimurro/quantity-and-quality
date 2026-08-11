@@ -14,7 +14,7 @@
       "label": "Natural gas HHV",
       "reference_id": "methane-hhv",
       "quantity": 10000,
-      "unit": "MWh_HHV",
+      "unit": "MWh_HHV_NG",
       "cost_per_mwh": 32,
       "co2_kg_per_mwh": 181
     },
@@ -23,7 +23,7 @@
       "label": "Hydrogen HHV",
       "reference_id": "hydrogen-hhv",
       "quantity": 10000,
-      "unit": "MWh_HHV",
+      "unit": "MWh_HHV_H2",
       "cost_per_mwh": 95,
       "co2_kg_per_mwh": 0
     },

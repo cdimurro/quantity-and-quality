@@ -10,6 +10,7 @@ from .core import (
     exergy_unit,
     format_energy_notation,
 )
+from .tiers import conformance_issues, infer_fidelity_tier, normalize_tier
 from .units import convert_energy, convert_power, is_energy_unit, is_power_unit
 
 
@@ -28,6 +29,7 @@ class QuantityQualityRecord:
     boundary: str = ""
     basis: str = ""
     method: str = "supplied"
+    tier: str = ""
     label: Optional[str] = None
     source_c: Optional[float] = None
     sink_c: Optional[float] = None
@@ -53,6 +55,8 @@ class QuantityQualityRecord:
             ),
             label=self.label,
         )
+        if self.tier:
+            normalize_tier(self.tier)
 
     @property
     def fx(self) -> float:
@@ -68,6 +72,12 @@ class QuantityQualityRecord:
         if not bracket:
             return self.notation
         return f"{self.notation} {bracket}"
+
+    @property
+    def fidelity_tier(self) -> str:
+        if self.tier:
+            return normalize_tier(self.tier)
+        return infer_fidelity_tier(self._tier_payload())
 
     @property
     def accessible_exergy(self) -> float:
@@ -104,6 +114,7 @@ class QuantityQualityRecord:
             capabilities.append("reference_lookup")
         if self.method in {"thermal", "cooling", "solar", "chemical", "fuel"}:
             capabilities.append(f"{self.method}_method")
+        capabilities.append(f"tier_{self.fidelity_tier.lower()}")
         return tuple(capabilities)
 
     @property
@@ -134,11 +145,17 @@ class QuantityQualityRecord:
     @property
     def readiness(self) -> dict:
         return {
+            "tier": self.fidelity_tier,
             "capabilities": list(self.capabilities),
             "missing_context": list(self.missing_context),
+            "conformance_issues": list(self.conformance_issues),
             "assumptions": list(self.assumptions),
             "warnings": list(self.warnings),
         }
+
+    @property
+    def conformance_issues(self) -> Tuple[str, ...]:
+        return conformance_issues(self._tier_payload(), tier=self.fidelity_tier)
 
     @property
     def ok(self) -> bool:
@@ -157,6 +174,8 @@ class QuantityQualityRecord:
             "unit": self.unit,
             "exergy_factor": self.exergy_factor,
             "fx": self.exergy_factor,
+            "tier": self.fidelity_tier,
+            "fidelity_tier": self.fidelity_tier,
             "notation": self.notation,
             "full_notation": self.full_notation,
             "accessible_exergy": self.accessible_exergy,
@@ -212,6 +231,26 @@ class QuantityQualityRecord:
         if self.method in {"thermal", "cooling", "solar", "chemical"}:
             return True
         return False
+
+    def _tier_payload(self) -> dict:
+        payload = {
+            "quantity": self.quantity,
+            "unit": self.unit,
+            "fx": self.exergy_factor,
+            "exergy_factor": self.exergy_factor,
+            "reference": self.reference,
+            "boundary": self.boundary,
+            "basis": self.basis,
+            "method": self.method,
+            "source_c": self.source_c,
+            "sink_c": self.sink_c,
+            "cold_service_c": self.cold_service_c,
+            "ambient_sink_c": self.ambient_sink_c,
+            "tier": self.tier,
+            "metadata": self.metadata,
+        }
+        payload.update(dict(self.metadata))
+        return payload
 
     def _context_bracket(self) -> str:
         if self.source_c is not None and self.sink_c is not None:

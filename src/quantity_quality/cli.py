@@ -22,8 +22,10 @@ from .clean import clean_file
 from .core import solar_exergy_rate
 from .records import REPORT_SCHEMA_VERSION
 from .reference import filter_reference_examples
+from .registry import registry_as_dict
 from .scenario import compare_scenario_file, scenario_to_markdown, scenario_to_table
 from .schema import load_record_schema
+from .tiers import tiers_as_dict
 from .web_export import write_web_data
 
 
@@ -133,6 +135,14 @@ def build_parser() -> argparse.ArgumentParser:
     examples.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     examples.set_defaults(func=cmd_examples)
 
+    registry = subparsers.add_parser("registry", help="Show core carrier registry suffixes.")
+    registry.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    registry.set_defaults(func=cmd_registry)
+
+    tiers = subparsers.add_parser("tiers", help="Show Fidelity Tier definitions.")
+    tiers.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    tiers.set_defaults(func=cmd_tiers)
+
     annotate = subparsers.add_parser("annotate", help="Clean messy energy records into Quantity + Quality records.")
     _add_clean_args(annotate)
     annotate.set_defaults(func=cmd_annotate)
@@ -169,6 +179,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional synchronous browser data bundle loaded before script.js.",
     )
     export_web.set_defaults(func=cmd_export_web_data)
+
 
     return parser
 
@@ -303,6 +314,29 @@ def cmd_examples(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_registry(args: argparse.Namespace) -> int:
+    records = registry_as_dict()
+    if args.json:
+        _emit_json({"schema_version": REPORT_SCHEMA_VERSION, "records": records})
+    else:
+        for record in records:
+            examples = ", ".join(record.get("examples", []))
+            print(f"{record['suffix']:16} {record['meaning']} ({record['family']})")
+            if examples:
+                print(f"{'':16} examples: {examples}")
+    return 0
+
+
+def cmd_tiers(args: argparse.Namespace) -> int:
+    records = tiers_as_dict()
+    if args.json:
+        _emit_json({"schema_version": REPORT_SCHEMA_VERSION, "records": records})
+    else:
+        for record in records:
+            print(f"{record['tier']} {record['name']}: {record['summary']}")
+    return 0
+
+
 def cmd_annotate(args: argparse.Namespace) -> int:
     summary = clean_file(
         args.input,
@@ -393,6 +427,8 @@ def cmd_export_web_data(args: argparse.Namespace) -> int:
     print(f"schema: {payload['schema_version']}")
     print(f"presets: {len(payload['presets'])}")
     return 0
+
+
 
 
 def _add_context_args(

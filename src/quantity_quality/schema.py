@@ -17,4 +17,4 @@ def load_record_schema() -> dict:
 def minimum_record_fields() -> tuple[str, ...]:
     """Return the minimum portable field set for direct `fx` records."""
 
-    return ("quantity", "unit", "exergy_factor")
+    return ("quantity", "unit", "exergy_factor", "tier", "reference", "boundary")

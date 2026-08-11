@@ -24,6 +24,14 @@
       "type": "string",
       "minLength": 1
     },
+    "tier": {
+      "type": "string",
+      "enum": ["F0", "F1", "F2", "F3", "F4"]
+    },
+    "fidelity_tier": {
+      "type": "string",
+      "enum": ["F0", "F1", "F2", "F3", "F4"]
+    },
     "fx": {
       "type": "number",
       "minimum": 0
@@ -63,6 +71,21 @@
     "method": {
       "type": "string"
     },
+    "stream_id": {
+      "type": "string"
+    },
+    "timestamp": {
+      "type": "string"
+    },
+    "interval": {
+      "type": "string"
+    },
+    "interval_start": {
+      "type": "string"
+    },
+    "interval_end": {
+      "type": "string"
+    },
     "source_c": {
       "type": "number"
     },
@@ -92,6 +115,12 @@
       }
     },
     "missing_context": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "conformance_issues": {
       "type": "array",
       "items": {
         "type": "string"

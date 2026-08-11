@@ -11,6 +11,8 @@ from quantity_quality import (
     annotate_file,
     annotate_record,
     build_web_data,
+    carrier_family,
+    conformance_issues,
     chemical_exergy_factor,
     clean_dataframe,
     clean_file,
@@ -22,9 +24,18 @@ from quantity_quality import (
     compare_scenario_file,
     cooling_exergy_factor_c,
     electricity,
+    efficiency_from_loss_angle,
+    exergy_capital_efficiency,
+    exergy_loss_angle,
+    exergy_loss_angle_from_efficiency,
     exergy_unit,
+    f3_thermal_summary,
     fuel,
+    get_carrier_entry,
     format_energy_notation,
+    infer_fidelity_tier,
+    list_carrier_registry,
+    list_fidelity_tiers,
     get_reference_example,
     load_record_schema,
     load_reference_examples,
@@ -33,6 +44,7 @@ from quantity_quality import (
     petela_exergy_factor,
     report,
     source_temperature_for_fx_c,
+    thermal_interval,
     scenario_to_markdown,
     scenario_to_table,
     thermal,
@@ -126,7 +138,7 @@ def test_reference_examples_are_self_consistent():
                 abs=0.001,
             )
         if example["category"] == "chemical":
-            assert example["quantity_unit"].endswith(("_HHV", "_LHV"))
+            assert "_HHV" in example["quantity_unit"] or "_LHV" in example["quantity_unit"]
             assert "basis" in example["reference"].lower()
             assert example["fuel_basis"] in {"HHV", "LHV"}
 
@@ -226,11 +238,47 @@ def test_lookup_returns_contextual_record():
 
 def test_fuel_preset_and_comparison_helpers():
     gas = fuel(850, "natural gas", basis="HHV", unit="MMBtu_HHV")
+    default_gas = fuel(1, "natural gas", basis="HHV")
     electric = electricity(0.2, "MWh")
     rows = compare([gas, electric])
     assert gas.fx == pytest.approx(0.93)
+    assert default_gas.unit == "MWh_HHV_NG"
     assert rows[0]["label"] == "natural gas on HHV basis"
     assert rows[0]["accessible_exergy_mwh"] > rows[1]["accessible_exergy_mwh"]
+
+
+def test_third_draft_registry_tiers_and_diagnostics():
+    assert get_carrier_entry("MWh_solar").suffix == "_solar"
+    assert carrier_family("MWh_HHV_CH4") == "chemical"
+    assert any(entry.suffix == "_fission" for entry in list_carrier_registry())
+    assert [tier.tier for tier in list_fidelity_tiers()] == ["F0", "F1", "F2", "F3", "F4"]
+
+    interval = thermal_interval(
+        10,
+        source_c=80,
+        sink_c=5,
+        timestamp="2025-02-20T00:00:00",
+        stream_id="L4",
+    )
+    assert interval.fidelity_tier == "F3"
+    assert interval.fx == pytest.approx(1 - 278.15 / 353.15)
+    assert infer_fidelity_tier(interval.as_dict()) == "F3"
+    assert conformance_issues(interval.as_dict()) == ()
+
+    summary = f3_thermal_summary(
+        [
+            {"quantity": 10, "source_c": 80, "sink_c": 5},
+            {"quantity": 5, "source_c": 70, "sink_c": 10},
+        ],
+        fixed_sink_c=20,
+    )
+    assert summary.intervals == 2
+    assert summary.weighted_fx > summary.weighted_fixed_sink_fx
+
+    assert exergy_capital_efficiency(92.1, 1.5) == pytest.approx(61.4)
+    assert exergy_loss_angle(1.0, 0.5) == pytest.approx(45.0)
+    assert exergy_loss_angle_from_efficiency(0.5) == pytest.approx(45.0)
+    assert efficiency_from_loss_angle(45.0) == pytest.approx(0.5)
 
 
 def test_web_export_uses_canonical_reference_values(tmp_path):
@@ -238,8 +286,17 @@ def test_web_export_uses_canonical_reference_values(tmp_path):
     assert data["schema_version"] == "exergy_factor_web_data_v1"
     assert data["presets"]["naturalGasHhv"]["fx"] == pytest.approx(0.93)
     assert data["presets"]["hydrogenLhv"]["fx"] == pytest.approx(0.98)
+    assert data["presets"]["heat80"]["typed_unit"] == "MWh_th"
+    assert data["presets"]["solar"]["typed_unit"] == "MWh_solar"
+    assert data["presets"]["electricity"]["typed_unit"] == "MWh_e"
+    assert data["presets"]["mechanical"]["typed_unit"] == "MWh_m"
+    assert data["presets"]["naturalGasHhv"]["typed_unit"] == "MWh_HHV_NG"
+    assert data["presets"]["electricity"]["base_unit"] == "MWh"
     assert data["presets"]["heat80"]["sourceC"] == 80
     assert data["presets"]["heat80"]["sinkC"] == 20
+    assert data["presets"]["heat80"]["tier"] == "F2"
+    assert data["carrier_registry"]
+    assert data["fidelity_tiers"][0]["tier"] == "F0"
 
     output = tmp_path / "reference_examples.json"
     js_output = tmp_path / "reference_examples.js"

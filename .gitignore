@@ -10,3 +10,9 @@ dist/
 venv/
 runtime/
 .DS_Store
+*:Zone.Identifier
+*.aux
+*.log
+*.out
+*.xdv
+*.toc

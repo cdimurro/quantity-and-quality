@@ -57,6 +57,12 @@ FIELD_ALIASES = {
     "reference": ("reference", "reference_environment", "reference_sink", "sink_reference"),
     "boundary": ("boundary", "reporting_boundary", "meter_boundary", "measurement_boundary"),
     "basis": ("basis", "operating_basis", "method", "calculation_basis"),
+    "tier": ("tier", "fidelity_tier", "fx_tier", "quality_tier"),
+    "stream_id": ("stream_id", "stream", "tag", "meter_id", "asset_id"),
+    "interval": ("interval", "interval_length", "interval_minutes", "time_interval"),
+    "timestamp": ("timestamp", "datetime", "date_time", "time"),
+    "interval_start": ("interval_start", "start_time", "start"),
+    "interval_end": ("interval_end", "end_time", "end"),
     "source_c": (
         "source_c",
         "source_temp_c",
@@ -170,6 +176,11 @@ FUEL_REFERENCE_IDS = {
     ("natural gas", "LHV"): "methane-lhv",
     ("hydrogen", "HHV"): "hydrogen-hhv",
     ("hydrogen", "LHV"): "hydrogen-lhv",
+    ("diesel", "LHV"): "diesel-lhv",
+    ("gasoline", "LHV"): "gasoline-lhv",
+    ("crude_oil", "LHV"): "crude-oil-approximate",
+    ("crude oil", "LHV"): "crude-oil-approximate",
+    ("coal", "LHV"): "coal-lhv",
 }
 
 
@@ -715,6 +726,8 @@ def _write_csv(records: Sequence[Mapping[str, Any]], path: Path) -> None:
         "quantity",
         "unit",
         "fx",
+        "tier",
+        "fidelity_tier",
         "notation",
         "full_notation",
         "accessible_exergy",
@@ -725,6 +738,7 @@ def _write_csv(records: Sequence[Mapping[str, Any]], path: Path) -> None:
         "basis",
         "capabilities",
         "missing_context",
+        "conformance_issues",
         "assumptions",
         "warnings",
     ]
