@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.5.0 - Third Draft Alignment
+
+- Added a formal Carrier Registry API with core third-draft suffixes, including `MWh_solar`, `MWh_fission`, and carrier-specific chemical tokens such as `MWh_HHV_CH4`, `MWh_HHV_NG`, and `MWh_HHV_H2`.
+- Added Fidelity Tier definitions, tier inference, and conformance issue reporting for F0 through F4 records.
+- Added diagnostics for Exergy Capital Efficiency, second-law efficiency, Exergy Loss Angle, inverse angle mapping, Loss Angle Velocity, and F3 weighted factors.
+- Added F3 thermal interval helpers for synchronized dynamic temperature records.
+- Added an optional deterministic FastAPI service with calculation endpoints, API key request/delivery support, and CLI server startup.
+- Updated fuel notation defaults, reference examples, schema fields, CLI registry/tier commands, README examples, and tests to match the third draft.
+
 ## 0.4.0 - Launch Readiness
 
 - Added `calc`, `clean`, and `compare` CLI workflows for first-time users.
