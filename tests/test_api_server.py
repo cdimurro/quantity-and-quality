@@ -30,7 +30,7 @@ def test_api_public_metadata_and_calculation_without_key(monkeypatch, tmp_path):
     )
     assert response.status_code == 200
     record = response.json()["record"]
-    assert record["notation"] == "4 MWh_th, fx = 0.17"
+    assert record["notation"] == "4 MWh_th, fx = 0.170"
     assert record["accessible_exergy_unit"] == "MWh_ex"
     assert record["tier"] == "F2"
 

@@ -422,13 +422,22 @@ This keeps the Python library and public calculator aligned around one source of
 
 ## Reporting Notation
 
+The Exergy Factor is a **fixed-width field**: `0.170`, not `0.17`, and `1.000`,
+not `1`. The trailing digits state the precision being claimed, and they make the
+published figure look like the value a reader recomputes. The quantity is not
+padded — `1 MWh`, not `1.000 MWh`.
+
 ### Short notation
 
 Use this when the reference convention is already known, the carrier is unambiguous, or the value is being used in a compact dashboard, invoice, spreadsheet, or chart.
 
 ```text
-1 MWh, fx = 0.73
+1 MWh, fx = 1.000
 ```
+
+A short-form record is not verifiable from itself. That is a legitimate choice
+for electricity, where `fx = 1.000` regardless of the sink — but it is a choice,
+and the reader should be able to tell that it was made.
 
 ### Full notation
 
@@ -436,6 +445,65 @@ Use this for thermal streams, non-default references, technical reports, dataset
 
 ```text
 1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
+```
+
+**This is the point of the notation.** The bracket declares the source and
+reference temperatures, so whoever receives the record can re-derive the factor
+themselves — in one division, without trusting the sender or this library:
+
+```text
+fx = 1 - T0/Th = 1 - 293.15/353.15 = 0.170
+```
+
+From the shell, on any record — including ones this package did not produce:
+
+```bash
+quantity-quality verify "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"
+# 1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]
+#   fx = 1 - T0/Th = 1 - 293.15/353.15 = 0.170  [OK]
+```
+
+It exits non-zero when a verifiable record disagrees with its own bracket, so it
+can gate a pipeline: a report whose stated factors no longer match the
+temperatures printed beside them fails the build instead of being published.
+A record with no bracket exits zero — it has not been contradicted.
+
+From Python:
+
+```python
+>>> import quantity_quality as qq
+>>> print(qq.verify_notation("1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"))
+fx = 1 - T0/Th = 1 - 293.15/353.15 = 0.170  [OK]
+
+>>> check = qq.verify_notation("1 MWh_th, fx = 0.900 [Th = 80 C, T0 = 20 C]")
+>>> check.agrees, round(check.difference, 3)
+(False, 0.73)
+```
+
+A record with no declaration bracket is reported as **not verifiable**, which is
+not the same as wrong — nothing has been contradicted, there is simply nothing to
+check against.
+
+The bracket also round-trips, so a record can be read back out of a report,
+a CSV cell, or an email:
+
+```python
+>>> parsed = qq.parse_energy_notation("1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]")
+>>> parsed.source_c, parsed.sink_c, parsed.is_fully_specified
+(80.0, 20.0, True)
+```
+
+`°C` is accepted but never required, and a bracket temperature may state `K` or
+`F` explicitly — `[Th = 353.15 K, T0 = 293.15 K]` parses to the same record. The
+canonical written form stays ASCII so the notation survives a spreadsheet, a
+plain-text log, and an email without an encoding step.
+
+Cooling services declare their own bracket and verify against the service
+equation:
+
+```text
+1 MWh_cooling, fx = 0.082 [Tcold = 7 C, T0 = 30 C]
+fx = T0/Tcold - 1 = 303.15/280.15 - 1 = 0.082
 ```
 
 ### Structured data

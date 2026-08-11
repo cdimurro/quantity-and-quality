@@ -120,11 +120,25 @@ class PowerReport:
 
 @dataclass(frozen=True)
 class ParsedNotation:
-    """Parsed representation of strings like `1 MWh, fx = 0.73`."""
+    """Parsed representation of `1 MWh, fx = 0.73` and of the full declaration.
+
+    The declaration bracket fields are what make a record checkable by whoever
+    receives it, so they survive parsing rather than being discarded as prose.
+    """
 
     quantity: float
     unit: str
     exergy_factor: float
+    source_c: Optional[float] = None
+    sink_c: Optional[float] = None
+    cold_service_c: Optional[float] = None
+    energy_basis: Optional[str] = None
+
+    @property
+    def is_fully_specified(self) -> bool:
+        """True when the record carries what a reader needs to re-derive `fx`."""
+
+        return self.sink_c is not None and (self.source_c is not None or self.cold_service_c is not None)
 
 
 def accessible_exergy(quantity_or_power: Number, exergy_factor: Number) -> float:
@@ -138,11 +152,23 @@ def accessible_exergy(quantity_or_power: Number, exergy_factor: Number) -> float
 
 
 def format_exergy_factor(exergy_factor: Number, precision: int = 3) -> str:
-    """Format an Exergy Factor for public notation."""
+    """Format an Exergy Factor for public notation, at fixed width.
+
+    The Exergy Factor keeps its trailing zeros: `0.170`, not `0.17`, and `1.000`,
+    not `1`. The framework's notation is a fixed-width field, exactly as the paper
+    writes it in both of its worked examples, and the trailing digits are the
+    reader's evidence of the precision being claimed. Stripping them also made the
+    published figure disagree in appearance with the value a reader recomputes
+    (1 - 293.15/353.15 = 0.16990 -> 0.170), which undercuts the one-step check the
+    notation exists to support.
+
+    The QUANTITY is deliberately not treated this way — the paper writes `1 MWh`,
+    not `1.000 MWh`. Only the factor is a fixed-width field.
+    """
 
     factor = float(exergy_factor)
     _require_valid_factor(factor)
-    return _format_number(factor, precision=precision)
+    return f"{factor:.{precision}f}"
 
 
 def format_energy_notation(
@@ -180,21 +206,57 @@ def exergy_unit(unit: str) -> str:
     return f"{base}_ex"
 
 
+# A temperature inside the declaration bracket: `80 C`, `80C`, `80°C`, `353.15 K`.
+# The degree sign is optional on input because the paper typesets `80°C` while the
+# wire format stays ASCII, and a reader pasting either one must be understood.
+_TEMP = r"(?P<{name}>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*(?:°|º)?\s*(?P<{name}_unit>[CKF])?"
+
 _NOTATION_RE = re.compile(
     r"^\s*(?P<quantity>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s+"
-    r"(?P<unit>[^,]+?)\s*,\s*"
+    r"(?P<unit>[^,\[]+?)\s*,\s*"
     r"(?:f_X|fx|fX)\s*=\s*"
-    r"(?P<factor>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*$",
+    r"(?P<factor>[+-]?(?:\d+(?:\.\d*)?|\.\d+))"
+    # The declaration bracket is OPTIONAL, so the short form still parses. When it
+    # is present it is what makes the record independently checkable, and this
+    # parser refused it for as long as it existed: the pattern ended at the factor,
+    # so `full_notation` — the library's own canonical output — raised ValueError.
+    r"(?:\s*\[\s*(?P<bracket>[^\]]*)\s*\])?\s*$",
     re.IGNORECASE,
 )
 
+_BRACKET_TH_RE = re.compile(r"\bT_?h(?:ot)?\s*=\s*" + _TEMP.format(name="th"), re.IGNORECASE)
+_BRACKET_T0_RE = re.compile(r"\bT_?0\s*=\s*" + _TEMP.format(name="t0"), re.IGNORECASE)
+_BRACKET_TCOLD_RE = re.compile(r"\bT_?cold\s*=\s*" + _TEMP.format(name="tcold"), re.IGNORECASE)
+_BRACKET_BASIS_RE = re.compile(r"\bbasis\s*=\s*(?P<basis>[^,\]]+)", re.IGNORECASE)
+
+
+def _temp_to_c(value: Optional[str], unit: Optional[str]) -> Optional[float]:
+    """Normalise a bracket temperature to Celsius, honouring an explicit K or F."""
+
+    if value is None:
+        return None
+    number = float(value)
+    suffix = (unit or "C").upper()
+    if suffix == "K":
+        return number - 273.15
+    if suffix == "F":
+        return (number - 32.0) * 5.0 / 9.0
+    return number
+
 
 def parse_energy_notation(text: str) -> ParsedNotation:
-    """Parse strings like `1 MWh, fx = 0.73`."""
+    """Parse `1 MWh, fx = 0.73` and `1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]`.
+
+    Both the short form and the full declaration round-trip. `°C` is accepted but
+    not required, and a bracket temperature may state `K` or `F` explicitly.
+    """
 
     match = _NOTATION_RE.match(text)
     if not match:
-        raise ValueError("expected notation like '1 MWh, fx = 0.73'")
+        raise ValueError(
+            "expected notation like '1 MWh, fx = 0.73' or "
+            "'1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]'"
+        )
     quantity = float(match.group("quantity"))
     unit = match.group("unit").strip()
     factor = float(match.group("factor"))
@@ -202,7 +264,125 @@ def parse_energy_notation(text: str) -> ParsedNotation:
     _require_valid_factor(factor)
     if not unit:
         raise ValueError("unit is required")
-    return ParsedNotation(quantity=quantity, unit=unit, exergy_factor=factor)
+
+    source_c = sink_c = cold_c = None
+    basis = None
+    bracket = match.group("bracket")
+    if bracket:
+        if (found := _BRACKET_TH_RE.search(bracket)) is not None:
+            source_c = _temp_to_c(found.group("th"), found.group("th_unit"))
+        if (found := _BRACKET_T0_RE.search(bracket)) is not None:
+            sink_c = _temp_to_c(found.group("t0"), found.group("t0_unit"))
+        if (found := _BRACKET_TCOLD_RE.search(bracket)) is not None:
+            cold_c = _temp_to_c(found.group("tcold"), found.group("tcold_unit"))
+        if (found := _BRACKET_BASIS_RE.search(bracket)) is not None:
+            basis = found.group("basis").strip()
+
+    return ParsedNotation(
+        quantity=quantity,
+        unit=unit,
+        exergy_factor=factor,
+        source_c=source_c,
+        sink_c=sink_c,
+        cold_service_c=cold_c,
+        energy_basis=basis,
+    )
+
+
+@dataclass(frozen=True)
+class NotationVerification:
+    """The result of independently re-deriving a record's Exergy Factor.
+
+    This is the property the notation exists for. A record that declares its
+    source and reference temperatures can be checked by whoever receives it,
+    without trusting the sender, the tool that produced it, or this library —
+    the arithmetic is one division.
+    """
+
+    verifiable: bool
+    agrees: bool
+    stated_exergy_factor: float
+    recomputed_exergy_factor: Optional[float]
+    equation: str
+    substitution: str
+    difference: Optional[float]
+    tolerance: float
+    reason: str = ""
+
+    def __str__(self) -> str:
+        if not self.verifiable:
+            return f"not independently verifiable: {self.reason}"
+        mark = "OK" if self.agrees else "MISMATCH"
+        return f"{self.equation} = {self.substitution} = {self.recomputed_exergy_factor:.3f}  [{mark}]"
+
+
+def verify_notation(text: str, *, tolerance: Optional[float] = None) -> NotationVerification:
+    """Re-derive the Exergy Factor stated in a notation string, from its own bracket.
+
+    >>> print(verify_notation("1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"))
+    fx = 1 - T0/Th = 1 - 293.15/353.15 = 0.170  [OK]
+
+    A record without a declaration bracket is reported as not verifiable rather
+    than as wrong: nothing has been contradicted, there is simply nothing to check
+    against. That distinction matters — silently returning False for a short-form
+    record would brand every legitimate `1 MWh, fx = 1.000` as suspect.
+
+    The default tolerance is half a unit in the last decimal place the record
+    actually printed, so a value stated to three decimals is checked to three
+    decimals. Demanding more precision than the notation claims would fail records
+    that are correctly rounded.
+    """
+
+    match = _NOTATION_RE.match(text)
+    if not match:
+        raise ValueError(
+            "expected notation like '1 MWh, fx = 0.73' or "
+            "'1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]'"
+        )
+    parsed = parse_energy_notation(text)
+    stated_text = match.group("factor")
+    decimals = len(stated_text.partition(".")[2])
+    if tolerance is None:
+        tolerance = 0.5 * (10 ** -decimals) if decimals else 0.5
+
+    if parsed.sink_c is None:
+        return NotationVerification(
+            verifiable=False, agrees=False, stated_exergy_factor=parsed.exergy_factor,
+            recomputed_exergy_factor=None, equation="", substitution="",
+            difference=None, tolerance=tolerance,
+            reason="the record declares no reference temperature T0",
+        )
+
+    sink_k = float(parsed.sink_c) + 273.15
+    if parsed.source_c is not None:
+        source_k = float(parsed.source_c) + 273.15
+        recomputed = thermal_exergy_factor(source_k, sink_k)
+        equation = "fx = 1 - T0/Th"
+        substitution = f"1 - {sink_k:g}/{source_k:g}"
+    elif parsed.cold_service_c is not None:
+        cold_k = float(parsed.cold_service_c) + 273.15
+        recomputed = cooling_exergy_factor_c(parsed.cold_service_c, parsed.sink_c)
+        equation = "fx = T0/Tcold - 1"
+        substitution = f"{sink_k:g}/{cold_k:g} - 1"
+    else:
+        return NotationVerification(
+            verifiable=False, agrees=False, stated_exergy_factor=parsed.exergy_factor,
+            recomputed_exergy_factor=None, equation="", substitution="",
+            difference=None, tolerance=tolerance,
+            reason="the record declares T0 but no source or cold-service temperature",
+        )
+
+    difference = abs(recomputed - parsed.exergy_factor)
+    return NotationVerification(
+        verifiable=True,
+        agrees=difference <= tolerance,
+        stated_exergy_factor=parsed.exergy_factor,
+        recomputed_exergy_factor=recomputed,
+        equation=equation,
+        substitution=substitution,
+        difference=difference,
+        tolerance=tolerance,
+    )
 
 
 def report_from_notation(

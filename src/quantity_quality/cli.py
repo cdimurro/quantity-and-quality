@@ -22,6 +22,7 @@ from .clean import clean_file
 from .core import solar_exergy_rate
 from .records import REPORT_SCHEMA_VERSION
 from .reference import filter_reference_examples
+from .core import verify_notation
 from .registry import registry_as_dict
 from .scenario import compare_scenario_file, scenario_to_markdown, scenario_to_table
 from .schema import load_record_schema
@@ -142,6 +143,14 @@ def build_parser() -> argparse.ArgumentParser:
     tiers = subparsers.add_parser("tiers", help="Show Fidelity Tier definitions.")
     tiers.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     tiers.set_defaults(func=cmd_tiers)
+
+    verify = subparsers.add_parser(
+        "verify",
+        help="Re-derive the Exergy Factor a record states, from its own declaration bracket.",
+    )
+    verify.add_argument("notation", help='For example: "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"')
+    verify.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
+    verify.set_defaults(func=cmd_verify)
 
     annotate = subparsers.add_parser("annotate", help="Clean messy energy records into Quantity + Quality records.")
     _add_clean_args(annotate)
@@ -340,6 +349,47 @@ def cmd_tiers(args: argparse.Namespace) -> int:
         for record in records:
             print(f"{record['tier']} {record['name']}: {record['summary']}")
     return 0
+
+
+def cmd_verify(args: argparse.Namespace) -> int:
+    """Check a published record against its own declaration.
+
+    Exits non-zero when a verifiable record disagrees with its bracket, so this
+    can gate a pipeline: a report whose stated factors no longer match the
+    temperatures beside them fails the build rather than being published.
+
+    A record with no bracket exits 0 with a note. It has not been contradicted —
+    there is nothing to check it against — and failing on it would punish the
+    short form the framework explicitly permits.
+    """
+
+    check = verify_notation(args.notation)
+    if args.json:
+        _emit_json(
+            {
+                "schema_version": REPORT_SCHEMA_VERSION,
+                "notation": args.notation,
+                "verifiable": check.verifiable,
+                "agrees": check.agrees,
+                "stated_exergy_factor": check.stated_exergy_factor,
+                "recomputed_exergy_factor": check.recomputed_exergy_factor,
+                "equation": check.equation,
+                "substitution": check.substitution,
+                "difference": check.difference,
+                "tolerance": check.tolerance,
+                "reason": check.reason,
+            }
+        )
+    else:
+        print(args.notation)
+        print(f"  {check}")
+        if check.verifiable and not check.agrees:
+            print(
+                f"  stated {check.stated_exergy_factor} but the declared temperatures give "
+                f"{check.recomputed_exergy_factor:.5f} (off by {check.difference:.5f}, "
+                f"tolerance {check.tolerance})"
+            )
+    return 1 if (check.verifiable and not check.agrees) else 0
 
 
 def cmd_annotate(args: argparse.Namespace) -> int:

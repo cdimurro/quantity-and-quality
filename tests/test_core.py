@@ -33,6 +33,7 @@ from quantity_quality import (
     fuel,
     get_carrier_entry,
     format_energy_notation,
+    format_exergy_factor,
     infer_fidelity_tier,
     list_carrier_registry,
     list_fidelity_tiers,
@@ -49,6 +50,7 @@ from quantity_quality import (
     scenario_to_table,
     thermal,
     thermal_exergy_factor_c,
+    verify_notation,
     weighted_exergy_factor,
     write_web_data,
 )
@@ -150,7 +152,7 @@ def test_invalid_thermal_factor_rejects_reversed_temperatures():
 
 def test_adoption_notation_format_and_parse():
     notation = format_energy_notation(1, "MWh", 0.73)
-    assert notation == "1 MWh, fx = 0.73"
+    assert notation == "1 MWh, fx = 0.730"
     parsed = parse_energy_notation(notation)
     assert parsed.quantity == 1
     assert parsed.unit == "MWh"
@@ -173,7 +175,7 @@ def test_reference_environment_uses_paper_default():
 
 def test_common_examples_have_20_records():
     assert len(COMMON_NOTATION_EXAMPLES) == 20
-    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "845 kWh, fx = 1"
+    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "845 kWh, fx = 1.000"
 
 
 def test_annotate_record_from_reference_id():
@@ -187,7 +189,7 @@ def test_annotate_record_from_reference_id():
         }
     )
     assert annotated.ok
-    assert annotated.record["notation"] == "1 MWh_th, fx = 0.17"
+    assert annotated.record["notation"] == "1 MWh_th, fx = 0.170"
     assert annotated.record["accessible_exergy"] == pytest.approx(0.17)
     assert annotated.record["accessible_exergy_unit"] == "MWh_ex"
     assert annotated.record["operating_basis"] == "Carnot factor, source=80 C, sink=20 C"
@@ -205,12 +207,12 @@ def test_annotate_record_from_temperatures():
     assert annotated.ok
     assert annotated.record["exergy_factor"] == pytest.approx(0.170, abs=0.001)
     assert "self_verifying" in annotated.record["capabilities"]
-    assert annotated.record["full_notation"] == "1 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]"
+    assert annotated.record["full_notation"] == "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"
 
 
 def test_progressive_report_accepts_minimum_inputs_and_reports_missing_context():
     record = report(1, "MWh", fx=0.73)
-    assert record.notation == "1 MWh, fx = 0.73"
+    assert record.notation == "1 MWh, fx = 0.730"
     assert "notation" in record.capabilities
     assert "accessible_exergy" in record.capabilities
     assert record.missing_context == ("reference", "boundary", "basis")
@@ -222,7 +224,7 @@ def test_thermal_helper_defaults_to_20c_and_is_self_verifying():
     record = thermal(2.738, "kWh_th", source_c=541)
     assert "self_verifying" in record.capabilities
     assert record.fx == pytest.approx(0.640, abs=0.001)
-    assert record.full_notation == "2.738 kWh_th, fx = 0.64 [Th = 541 C, T0 = 20 C]"
+    assert record.full_notation == "2.738 kWh_th, fx = 0.640 [Th = 541 C, T0 = 20 C]"
     assert record.accessible_exergy_mwh == pytest.approx(0.001752, abs=0.000001)
     assert source_temperature_for_fx_c(0.64) == pytest.approx(541.156, abs=0.001)
 
@@ -233,7 +235,7 @@ def test_lookup_returns_contextual_record():
     qq_record = lookup("heat-80c-standard", quantity=1.8)
     assert "self_verifying" in qq_record.capabilities
     assert "reference_lookup" in qq_record.capabilities
-    assert qq_record.full_notation == "1.8 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]"
+    assert qq_record.full_notation == "1.8 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"
 
 
 def test_fuel_preset_and_comparison_helpers():
@@ -355,7 +357,7 @@ def test_clean_record_maps_messy_fields_and_converts_temperatures():
     assert record["unit"] == "kWh_th"
     assert record["source_c"] == pytest.approx(541.0)
     assert record["sink_c"] == pytest.approx(20.0)
-    assert record["full_notation"] == "2738 kWh_th, fx = 0.64 [Th = 541 C, T0 = 20 C]"
+    assert record["full_notation"] == "2738 kWh_th, fx = 0.640 [Th = 541 C, T0 = 20 C]"
     assert "self_verifying" in record["capabilities"]
 
 
@@ -369,18 +371,18 @@ def test_clean_record_supports_explicit_mapping_and_constants():
             "source_f": "supply_temp_f",
         },
     )
-    assert record["notation"] == "2.738 kWh_th, fx = 0.64"
+    assert record["notation"] == "2.738 kWh_th, fx = 0.640"
     assert record["accessible_exergy"] == pytest.approx(1.752, abs=0.001)
 
 
 def test_clean_records_supports_notation_and_fuel_presets():
     records = clean_records(
         [
-            {"notation": "1 MWh, fx = 0.73"},
+            {"notation": "1 MWh, fx = 0.730"},
             {"fuel_type": "natural gas", "energy_mmbtu_hhv": 850, "energy_basis": "HHV"},
         ]
     )
-    assert records[0]["notation"] == "1 MWh, fx = 0.73"
+    assert records[0]["notation"] == "1 MWh, fx = 0.730"
     assert records[1]["reference_id"] == "methane-hhv"
     assert records[1]["fx"] == pytest.approx(0.93)
 
@@ -406,7 +408,7 @@ def test_clean_dataframe_accepts_pandas_like_objects():
             return [{"energy_kwh": 100, "fx": 0.5}]
 
     records = clean_dataframe(FakeFrame())
-    assert records[0]["notation"] == "100 kWh, fx = 0.5"
+    assert records[0]["notation"] == "100 kWh, fx = 0.500"
 
 
 def test_clean_sql_and_stream_helpers():
@@ -415,5 +417,110 @@ def test_clean_sql_and_stream_helpers():
     connection.execute("insert into energy values ('meter 1', 100, 0.5)")
     rows = clean_sql(connection, "select * from energy")
     streamed = list(clean_stream([{"energy_kwh": 200, "fx": 0.25}]))
-    assert rows[0]["notation"] == "100 kWh, fx = 0.5"
-    assert streamed[0]["notation"] == "200 kWh, fx = 0.25"
+    assert rows[0]["notation"] == "100 kWh, fx = 0.500"
+    assert streamed[0]["notation"] == "200 kWh, fx = 0.250"
+
+
+# ---------------------------------------------------------------------------
+# The full operational notation, and the property it exists for.
+#
+# The paper defines a completely specified stream declaration as
+#
+#     1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]
+#
+# and its value is that the recipient can re-derive the factor in one step,
+# without trusting the sender:
+#
+#     fx = 1 - T0/Th = 1 - 293.15/353.15 = 0.170
+#
+# Three things had to be true for that to hold and none of them were. The
+# factor printed as 0.17, so the published figure did not look like the value a
+# reader recomputes. The parser rejected the bracket outright — the library
+# emitted a canonical form it could not read back. And nothing anywhere actually
+# performed the check.
+# ---------------------------------------------------------------------------
+
+
+def test_notation_matches_the_paper_exactly():
+    record = thermal(1, "MWh_th", source_c=80, sink_c=20)
+    assert record.full_notation == "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"
+    # The paper's short form for an unambiguous stream keeps its trailing zeros.
+    assert electricity(1, "MWh").notation == "1 MWh, fx = 1.000"
+
+
+def test_the_factor_is_a_fixed_width_field_but_the_quantity_is_not():
+    # `1 MWh`, not `1.000 MWh` — only the factor is padded.
+    assert format_exergy_factor(0.17) == "0.170"
+    assert format_exergy_factor(1) == "1.000"
+    assert format_energy_notation(1, "MWh", 0.5) == "1 MWh, fx = 0.500"
+    assert format_energy_notation(2.738, "kWh_th", 0.64) == "2.738 kWh_th, fx = 0.640"
+
+
+def test_full_declaration_round_trips():
+    record = thermal(1, "MWh_th", source_c=80, sink_c=20)
+    parsed = parse_energy_notation(record.full_notation)
+    assert parsed.quantity == 1
+    assert parsed.unit == "MWh_th"
+    assert parsed.source_c == pytest.approx(80)
+    assert parsed.sink_c == pytest.approx(20)
+    assert parsed.is_fully_specified
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]",   # as the paper typesets it
+        "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]",   # ASCII wire form
+        "1 MWh, fx = 0.170 [Th = 353.15 K, T0 = 293.15 K]",  # stated in kelvin
+    ],
+)
+def test_a_reader_can_confirm_the_factor_in_one_step(text):
+    check = verify_notation(text)
+    assert check.verifiable
+    assert check.agrees
+    assert check.recomputed_exergy_factor == pytest.approx(0.16990, abs=1e-5)
+    assert check.equation == "fx = 1 - T0/Th"
+
+
+def test_a_wrong_factor_is_caught():
+    check = verify_notation("1 MWh_th, fx = 0.900 [Th = 80 C, T0 = 20 C]")
+    assert check.verifiable
+    assert not check.agrees
+    assert check.difference == pytest.approx(0.730, abs=0.001)
+
+
+def test_an_unverifiable_record_is_not_reported_as_wrong():
+    # A short-form record contradicts nothing; there is simply nothing to check
+    # against. Returning "wrong" here would brand every legitimate
+    # `1 MWh, fx = 1.000` as suspect.
+    check = verify_notation("1 MWh, fx = 1.000")
+    assert not check.verifiable
+    assert "T0" in check.reason
+
+
+def test_cooling_declarations_verify_against_their_own_bracket():
+    # 7 C service against a 30 C ambient. Independently: 303.15/280.15 - 1.
+    check = verify_notation("1 MWh_cooling, fx = 0.082 [Tcold = 7 C, T0 = 30 C]")
+    assert check.verifiable and check.agrees
+    assert check.equation == "fx = T0/Tcold - 1"
+
+
+def test_cli_verify_exit_code_can_gate_a_pipeline(capsys):
+    # The exit code is the contract: a report whose stated factors no longer match
+    # the temperatures printed beside them should fail a build, not be published.
+    from quantity_quality.cli import main
+
+    assert main(["verify", "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"]) == 0
+    assert main(["verify", "1 MWh_th, fx = 0.900 [Th = 80 C, T0 = 20 C]"]) == 1
+    # An unverifiable record has not been contradicted, so it must not fail a build.
+    assert main(["verify", "1 MWh, fx = 1.000"]) == 0
+    assert "MISMATCH" in capsys.readouterr().out
+
+
+def test_tolerance_follows_the_precision_the_record_claims():
+    # Stated to three decimals, so checked to three decimals. Demanding more
+    # precision than the notation claims would fail correctly-rounded records.
+    assert verify_notation("1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]").agrees
+    loose = verify_notation("1 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]")
+    assert loose.agrees
+    assert loose.tolerance == pytest.approx(0.005)

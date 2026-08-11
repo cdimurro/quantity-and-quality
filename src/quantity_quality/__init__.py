@@ -2,6 +2,7 @@
 
 from .core import (
     EnergyReport,
+    NotationVerification,
     ParsedNotation,
     PowerReport,
     ReferenceContext,
@@ -18,6 +19,7 @@ from .core import (
     solar_exergy_rate,
     thermal_exergy_factor,
     thermal_exergy_factor_c,
+    verify_notation,
     weighted_exergy_factor,
 )
 from .api import (

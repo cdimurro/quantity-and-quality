@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.6.0 - The Full Operational Notation
+
+The paper defines a completely specified stream declaration as
+`1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]`, and its value is that the recipient
+can re-derive the factor in one step. Three things had to be true for that to
+hold, and none of them were.
+
+- **The Exergy Factor is now a fixed-width field.** `0.170`, not `0.17`; `1.000`,
+  not `1`. The trailing digits state the precision being claimed, and without
+  them the published figure did not look like the value a reader recomputes
+  (`1 - 293.15/353.15 = 0.16990 -> 0.170`). The quantity is unchanged: the paper
+  writes `1 MWh`, not `1.000 MWh`. **This changes printed notation strings.**
+- **The full declaration now parses.** `parse_energy_notation` rejected the
+  bracket outright, so the library emitted a canonical form it could not read
+  back. Both forms now round-trip. `°C` is accepted but not required, and a
+  bracket temperature may state `K` or `F` explicitly. `ParsedNotation` gained
+  `source_c`, `sink_c`, `cold_service_c`, `energy_basis`, and
+  `is_fully_specified`.
+- **Added `verify_notation()` and `quantity-quality verify`.** These re-derive a
+  record's factor from its own bracket and report agreement — the property the
+  notation exists for, previously implemented nowhere. The CLI exits non-zero on
+  a verifiable mismatch so it can gate a pipeline. A record with no bracket is
+  reported as *not verifiable*, which is not the same as wrong.
+
 ## 0.5.0 - Third Draft Alignment
 
 - **Distribution renamed to `quantity-and-quality`**, matching the repository
