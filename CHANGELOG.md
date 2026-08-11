@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.8.0 - Fuel volumes that name their fuel
+
+The website converted `scf(natural gas)`, `Mcf`, `MMcf`, `bbl(oil)` and `boe` to
+energy; the library refused them. The same record was usable in one place and
+rejected in the other.
+
+### Added
+
+- **Fuel-volume units convert when the unit names the fuel**, through the
+  standard statistical equivalents — 1,000 Btu per scf, 5.80 MMBtu per barrel —
+  producing the same numbers the website produces. 1 bbl(oil) becomes 1.6994 MWh
+  and 1.8014 MWh_ex on both.
+- Every conversion records what it used and on what basis. The paper's
+  enforcement mechanism is that a chemical token is incomplete when its basis and
+  reference table are not recoverable, so the assumption names the equivalent and
+  the basis rather than leaving them implied.
+
+Basis follows the paper, which recommends HHV as the default public fuel basis
+"because it is common in national energy statistics and keeps fx below unity for
+common combustion fuels". Gas volumes resolve to the HHV reference. The petroleum
+equivalent is paired with the crude reference this package actually ships, which
+is not an HHV figure, and the record says so instead of implying a basis it does
+not have.
+
+A bare `gallons`, `litres` or `kg` is still refused: a gallon of what, at what
+heating value.
+
+### Known gap
+
+The paper's Carrier Registry lists `MWh_HHV_diesel`, `MWh_HHV_gasoline`,
+`MWh_HHV_crude` and `MWh_HHV_coal`, and recommends HHV as the default. This
+package ships only LHV values for those four — 1.06, 1.07, 1.06 and 1.05 — every
+one above unity, which is the outcome the paper says an HHV basis avoids. Adding
+the HHV factors needs chemical-exergy values from a cited table; they are not
+invented here.
+
 ## 0.7.0 - Made usable on a real spreadsheet
 
 A representative facility export — Site / Meter / Month / Usage / Units / Notes,

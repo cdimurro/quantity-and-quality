@@ -13,6 +13,7 @@ from .records import annotate_record
 from .units import (
     ENERGY_TO_MWH,
     canonical_energy_unit,
+    fuel_volume_conversion,
     is_energy_unit,
     is_non_energy_unit,
     is_power_unit,
@@ -458,6 +459,7 @@ def normalize_record(
     _convert_temperatures(normalized, warnings)
     _infer_carrier_from_context(normalized, warnings)
     _normalize_fx(normalized, source, warnings)
+    _apply_fuel_volume(normalized, assumptions)
     _apply_fuel_reference(normalized)
     # A temperature the reporter wrote in prose beats a generic carrier default,
     # so this runs first: "44F supply" should rate that chilled water at 44 F, not
@@ -812,6 +814,35 @@ def _normalize_fx(normalized: dict[str, Any], source: Mapping[str, Any], warning
     if factor > 1.0 and factor <= 100.0 and ("percent" in key_text or "pct" in key_text or "%" in key_text):
         normalized["fx"] = factor / 100.0
         warnings.append("converted percentage quality factor to fractional fx")
+
+
+def _apply_fuel_volume(normalized: dict[str, Any], assumptions: list[str]) -> None:
+    """Turn a fuel volume whose unit names its fuel into an energy quantity.
+
+    `bbl(oil)` and `scf(natural gas)` carry their fuel in the unit, so a published
+    equivalent converts them. The website already did this and the library refused
+    them, so one record was convertible in one place and rejected in the other.
+
+    A bare `gallons` is still refused: a gallon of what, at what heating value.
+    """
+
+    unit = normalized.get("unit")
+    quantity = _as_float(normalized.get("quantity"))
+    if unit in (None, "") or quantity is None:
+        return
+    conversion = fuel_volume_conversion(str(unit))
+    if conversion is None:
+        return
+    mwh_per_unit, reference_id, basis, note = conversion
+
+    normalized["quantity"] = quantity * mwh_per_unit
+    normalized["unit"] = "MWh"
+    if normalized.get("reference_id") in (None, ""):
+        normalized["reference_id"] = reference_id
+    assumptions.append(
+        f"{quantity:g} {unit} converted to energy at {note}; the Exergy Factor is applied to the "
+        f"energy, not the volume, and the basis is {basis}"
+    )
 
 
 def _apply_fuel_reference(normalized: dict[str, Any]) -> None:

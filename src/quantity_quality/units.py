@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Tuple
 
 
@@ -46,6 +47,46 @@ NON_ENERGY_UNITS = frozenset({
     "bbl", "barrel", "barrels", "kg", "lb", "lbs", "pound", "pounds",
     "tonne", "tonnes", "shortton", "ton", "tons",
 })
+
+
+# Fuel volumes whose UNIT NAMES THE FUEL, and so can be converted to energy
+# through a published equivalent.
+#
+# A bare `gallons` still cannot: a gallon of what, at what heating value. But
+# `scf(natural gas)` and `bbl(oil)` carry their fuel in the unit, and the figures
+# below are the standard statistical equivalents — 1,000 Btu per standard cubic
+# foot, 5.8 MMBtu per barrel of oil equivalent. These are exactly the units the
+# website already offers, and the library refused them, so the same record was
+# convertible in one place and rejected in the other.
+#
+# `basis` follows the paper, which recommends HHV as the default public fuel
+# basis "because it is common in national energy statistics and keeps fx below
+# unity for common combustion fuels", and requires any LHV denominator to be
+# visible in the carrier suffix. Natural gas resolves to the HHV reference. The
+# petroleum equivalent is paired with the crude reference the package actually
+# ships, which is not an HHV figure — so the record says so rather than implying
+# a basis it does not have.
+# The package ships no natural-gas reference of its own, so gas volumes resolve
+# to `methane-hhv` — the same approximation the carrier-phrase table already
+# makes, and one the record states rather than hides.
+FUEL_VOLUME_UNITS = {
+    "scf(natural gas)": (1.05505585262e6 / 3.6e9, "methane-hhv", "HHV", "1,000 Btu per scf"),
+    "mcf(natural gas)": (1.05505585262e9 / 3.6e9, "methane-hhv", "HHV", "1.000 MMBtu per Mcf"),
+    "mmcf(natural gas)": (1.05505585262e12 / 3.6e9, "methane-hhv", "HHV", "1,000 MMBtu per MMcf"),
+    "boe": (6.1178632e9 / 3.6e9, "crude-oil-approximate", "as published", "5.80 MMBtu per barrel of oil equivalent"),
+    "bbl(oil)": (6.1178632e9 / 3.6e9, "crude-oil-approximate", "as published", "5.80 MMBtu per barrel"),
+}
+
+
+def fuel_volume_conversion(unit: str):
+    """Return (mwh_per_unit, reference_id, basis, note) when a unit names its fuel."""
+
+    key = str(unit or "").strip().lower().replace("_", " ")
+    key = re.sub(r"\s*\(\s*", "(", re.sub(r"\s*\)\s*", ")", key))
+    entry = FUEL_VOLUME_UNITS.get(key)
+    if entry is None:
+        return None
+    return entry
 
 
 # Spellings that mean an existing unit. Normalising here keeps one source of

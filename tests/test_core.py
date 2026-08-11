@@ -631,6 +631,35 @@ def test_steam_pressure_becomes_a_delivery_temperature():
     assert any("saturat" in a for a in record["assumptions"])
 
 
+def test_a_fuel_volume_that_names_its_fuel_converts():
+    # The website offered these units and converted them; the library refused
+    # them, so the same record was usable in one place and rejected in the other.
+    # The unit carries the fuel, so a published equivalent applies.
+    gas = clean_records([{"Usage": 1000, "Units": "scf(natural gas)"}])[0]
+    assert gas["quantity"] == pytest.approx(0.29307, abs=1e-4)   # 1 MMBtu
+    assert gas["unit"] == "MWh"
+    assert gas["fx"] == 0.93
+
+    oil = clean_records([{"Usage": 1, "Units": "bbl(oil)"}])[0]
+    assert oil["quantity"] == pytest.approx(1.6994, abs=1e-3)    # 5.80 MMBtu
+    assert oil["accessible_exergy_mwh"] == pytest.approx(1.8014, abs=1e-3)
+
+    # The conversion is stated, including the basis, because the paper's
+    # enforcement mechanism is that a chemical token is incomplete when its basis
+    # is not recoverable.
+    note = " ".join(gas["assumptions"])
+    assert "1,000 Btu per scf" in note
+    assert "HHV" in note
+
+
+def test_a_volume_that_does_not_name_its_fuel_is_still_refused():
+    # A gallon of what, at what heating value. Converting this would be inventing
+    # the number the reporter came here to have checked.
+    record = clean_records([{"Meter": "Diesel genset", "Usage": 4100, "Units": "gallons"}])[0]
+    assert record.get("fx") in (None, "")
+    assert record["needs_attention"]
+
+
 def test_a_ton_hour_is_energy_not_a_ton():
     # `ton_hour` splits on the underscore to the mass unit `ton` plus a `_hour`
     # carrier suffix, which rejected every chilled-water row in a building export.
