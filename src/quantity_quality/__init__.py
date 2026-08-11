@@ -96,7 +96,14 @@ from .adoption import (
     STANDARD_INTEGRATION_POINTS,
 )
 from .model import QuantityQualityRecord
-from .units import convert_energy, convert_power, is_energy_unit, is_power_unit
+from .units import (
+    canonical_energy_unit,
+    convert_energy,
+    convert_power,
+    is_energy_unit,
+    is_non_energy_unit,
+    is_power_unit,
+)
 from .records import (
     REPORT_SCHEMA_VERSION,
     AnnotatedRecord,
@@ -188,7 +195,9 @@ __all__ = [
     "get_reference_example",
     "get_tier_definition",
     "infer_fidelity_tier",
+    "canonical_energy_unit",
     "is_energy_unit",
+    "is_non_energy_unit",
     "is_power_unit",
     "list_carrier_registry",
     "list_fidelity_tiers",

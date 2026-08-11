@@ -35,6 +35,8 @@ from quantity_quality import (
     format_energy_notation,
     format_exergy_factor,
     infer_fidelity_tier,
+    is_energy_unit,
+    is_non_energy_unit,
     list_carrier_registry,
     list_fidelity_tiers,
     get_reference_example,
@@ -503,6 +505,92 @@ def test_cooling_declarations_verify_against_their_own_bracket():
     check = verify_notation("1 MWh_cooling, fx = 0.082 [Tcold = 7 C, T0 = 30 C]")
     assert check.verifiable and check.agrees
     assert check.equation == "fx = T0/Tcold - 1"
+
+
+# ---------------------------------------------------------------------------
+# Whether a real spreadsheet can actually be used.
+#
+# A representative facility export — Site / Meter / Month / Usage / Units / Notes,
+# with therms, ton-hours, MMBtu and gallons in it — produced ZERO usable records.
+# Every row came back "provide exergy_factor/fx, reference_id, source_c+sink_c, or
+# chemical_exergy+energy_basis": the tool asked the reporter for the number they
+# came to get, while `electricity-delivered` and `methane-hhv` already sat in the
+# bundled data. The reporter's own columns were dropped from the output, so the
+# results could not even be joined back to the rows they came from.
+# ---------------------------------------------------------------------------
+
+
+def test_the_reporters_own_columns_survive(tmp_path):
+    source = tmp_path / "meters.csv"
+    source.write_text(
+        "Site,Meter,Month,Usage,Units,Notes\n"
+        "Plant A,Main electric,Jan-2026,845000,kWh,\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "out.csv"
+    clean_file(source, output=out)
+    header = out.read_text(encoding="utf-8").splitlines()[0].split(",")
+    # Their columns, first and unchanged. Without this the output cannot be joined
+    # back to the reporter's data and is unusable however correct the numbers are.
+    assert header[:6] == ["Site", "Meter", "Month", "Usage", "Units", "Notes"]
+    assert "fx" in header
+
+
+def test_ordinary_meter_names_are_understood():
+    records = clean_records([
+        {"Meter": "Main electric", "Usage": 845000, "Units": "kWh"},
+        {"Meter": "Natural gas boiler", "Usage": 1240, "Units": "therms"},
+        {"Meter": "Chilled water", "Usage": 910, "Units": "ton-hours"},
+    ])
+    assert [record["fx"] for record in records] == [1.0, 0.93, 0.082]
+    # And every inferred carrier says so, in the record, naming what it matched.
+    for record in records:
+        assert any("presumptive" in assumption for assumption in record["assumptions"])
+
+
+def test_an_explicit_value_always_beats_an_inferred_one():
+    # The guess must never overwrite what the reporter actually stated.
+    record = clean_records([
+        {"Meter": "Main electric", "Usage": 100, "Units": "kWh", "fx": 0.42},
+    ])[0]
+    assert record["fx"] == 0.42
+    assert not any("presumptive" in assumption for assumption in record["assumptions"])
+
+
+def test_utility_units_reach_a_comparable_MWh_ex():
+    # The whole point is that rows can be added up. A unit that parses but yields
+    # no accessible_exergy_mwh silently breaks that, which is worse than refusing.
+    records = clean_records([
+        {"Usage": 1240, "Units": "therms", "fx": 0.93},
+        {"Usage": 910, "Units": "ton-hours", "fx": 0.082},
+        {"Usage": 430, "Units": "MMBtu", "fx": 0.353},
+    ])
+    for record in records:
+        assert record["accessible_exergy_mwh"] is not None, record["unit"]
+    assert records[0]["accessible_exergy_mwh"] == pytest.approx(33.789, abs=0.01)
+    assert records[1]["accessible_exergy_mwh"] == pytest.approx(0.2624, abs=0.001)
+
+
+def test_a_volume_is_never_given_an_exergy_factor():
+    # 4100 gallons of diesel x 1.06 produced "4346 gallons_ex", which reads like a
+    # result and is not one: an Exergy Factor is work potential per unit ENERGY.
+    record = clean_records([{"Meter": "Diesel genset", "Usage": 4100, "Units": "gallons"}])[0]
+    # An unrated row carries no `fx` key at all rather than a null one, so read it
+    # defensively — this asserts no factor was invented, not the key's presence.
+    assert record.get("fx") in (None, "")
+    assert record["needs_attention"]
+    message = " ".join(issue["message"] for issue in record["issues"])
+    assert "volume or mass" in message
+    assert "heating value" in message
+
+
+def test_a_ton_hour_is_energy_not_a_ton():
+    # `ton_hour` splits on the underscore to the mass unit `ton` plus a `_hour`
+    # carrier suffix, which rejected every chilled-water row in a building export.
+    assert is_energy_unit("ton-hours")
+    assert not is_non_energy_unit("ton-hours")
+    assert is_non_energy_unit("gallons")
+    assert is_non_energy_unit("tonnes")
 
 
 def test_cli_verify_exit_code_can_gate_a_pipeline(capsys):

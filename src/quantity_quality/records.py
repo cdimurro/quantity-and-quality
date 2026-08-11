@@ -13,6 +13,7 @@ from .core import (
 )
 from .model import QuantityQualityRecord
 from .reference import extract_temperature_context, get_reference_example
+from .units import is_non_energy_unit
 
 
 REPORT_SCHEMA_VERSION = "quantity_quality_report_v1"
@@ -335,10 +336,27 @@ def _factor_from_record(
                 issues.append(ValidationIssue("chemical_exergy/energy_basis", str(exc)))
         return None, None, "chemical"
 
+    # Say what to do, in the words of someone holding a meter reading. The old
+    # message named four internal field names and nothing else, which told a
+    # facility manager to supply the very number they came here to get.
+    unit_text = str(_first_present(source, ("unit", "units")) or "")
+    if unit_text and is_non_energy_unit(unit_text):
+        issues.append(
+            ValidationIssue(
+                "unit",
+                f"{unit_text} measures volume or mass, not energy. Multiply it by the fuel's "
+                f"heating value to get kWh, MMBtu or GJ first, then this row can be quality-rated.",
+            )
+        )
+        return None, None, "unknown"
+
     issues.append(
         ValidationIssue(
             "exergy_factor",
-            "provide exergy_factor/fx, reference_id, source_c+sink_c, or chemical_exergy+energy_basis",
+            "not enough to rate this row's quality. Any ONE of these is enough: "
+            "the temperature the heat is delivered at (a source_c column, or '80 C' in a notes "
+            "column); the fuel name plus HHV or LHV; a reference_id from `quantity-quality list`; "
+            "or the Exergy Factor itself if you already know it.",
         )
     )
     return None, None, "unknown"

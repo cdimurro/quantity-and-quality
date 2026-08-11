@@ -10,7 +10,14 @@ from urllib.request import urlopen
 
 from .core import parse_energy_notation
 from .records import annotate_record
-from .units import is_energy_unit, is_power_unit, split_unit
+from .units import (
+    ENERGY_TO_MWH,
+    canonical_energy_unit,
+    is_energy_unit,
+    is_non_energy_unit,
+    is_power_unit,
+    split_unit,
+)
 
 
 RecordMapping = Mapping[str, Union[str, int, float, Callable[[Mapping[str, Any]], Any], None]]
@@ -260,6 +267,7 @@ def clean_file(
     file_format: Optional[str] = None,
     assume_default_sink: bool = True,
     default_sink_c: float = 20.0,
+    detailed: bool = False,
 ) -> dict:
     """Clean records from CSV, JSON, JSONL/NDJSON, or Excel files."""
 
@@ -274,7 +282,7 @@ def clean_file(
     summary = clean_summary(cleaned)
     summary["records"] = cleaned
     if output is not None:
-        write_clean_records(cleaned, output)
+        write_clean_records(cleaned, output, detailed=detailed)
         summary["output"] = str(output)
     return summary
 
@@ -384,7 +392,12 @@ def load_excel(path: Union[str, Path], *, sheet_name: Union[str, int] = 0) -> li
     return pd.read_excel(path, sheet_name=sheet_name).to_dict(orient="records")
 
 
-def write_clean_records(records: Sequence[Mapping[str, Any]], output_path: Union[str, Path]) -> None:
+def write_clean_records(
+    records: Sequence[Mapping[str, Any]],
+    output_path: Union[str, Path],
+    *,
+    detailed: bool = False,
+) -> None:
     path = Path(output_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     suffix = path.suffix.lower()
@@ -397,7 +410,7 @@ def write_clean_records(records: Sequence[Mapping[str, Any]], output_path: Union
                 handle.write(json.dumps(record) + "\n")
         return
     if suffix == ".csv":
-        _write_csv(records, path)
+        _write_csv(records, path, detailed=detailed)
         return
     raise ValueError("supported output formats are .csv, .json, .jsonl, and .ndjson")
 
@@ -446,6 +459,8 @@ def normalize_record(
     _infer_carrier_from_context(normalized, warnings)
     _normalize_fx(normalized, source, warnings)
     _apply_fuel_reference(normalized)
+    # Last resort, after every explicit route has had its chance.
+    _infer_reference_from_text(source, normalized, assumptions)
 
     if assume_default_sink and normalized.get("source_c") not in (None, "") and normalized.get("sink_c") in (None, ""):
         normalized["sink_c"] = default_sink_c
@@ -552,6 +567,82 @@ def _convert_temperatures(normalized: dict[str, Any], warnings: list[str]) -> No
         warnings.append(f"converted {source_field} to {target_field}")
 
 
+# Ordinary words people actually put in a meter register, mapped to the reference
+# example that already answers them.
+#
+# WHY THIS EXISTS. Run a real facility spreadsheet through this cleaner and every
+# row came back "provide exergy_factor/fx, reference_id, source_c+sink_c, or
+# chemical_exergy+energy_basis" — that is, it asked the user for the number they
+# came here to get. Meanwhile `electricity-delivered` (fx 1.000) and `methane-hhv`
+# (fx 0.930) were already sitting in the bundled data. The knowledge was present;
+# it just was not connected to the words anybody writes on a meter.
+#
+# These are PRESUMPTIVE. Every match records an assumption naming the text it
+# matched and the reference it chose, so the guess is visible, auditable, and
+# overridable — a screening default, never a measurement. Anything the reporter
+# states explicitly wins; this only fills a gap that would otherwise be blank.
+_CARRIER_PHRASES: tuple[tuple[tuple[str, ...], str, str], ...] = (
+    (("main electric", "electricity", "electric meter", "grid electric", "kwh meter",
+      "power meter", "electric", "grid import"), "electricity-delivered",
+     "delivered electricity"),
+    (("shaft work", "motor shaft"), "shaft-work", "mechanical shaft work"),
+    (("pv ", "photovoltaic", "solar dc", "solar pv"), "pv-dc-output", "PV DC output"),
+    (("battery discharge", "battery export"), "battery-discharge", "battery discharge"),
+    (("natural gas", "nat gas", "natgas", " ng ", "gas boiler", "boiler gas"),
+     "methane-hhv", "natural gas on an HHV basis, approximated as methane"),
+    (("methane", "biomethane", "rng"), "methane-hhv", "methane on an HHV basis"),
+    (("hydrogen", " h2 "), "hydrogen-hhv", "hydrogen on an HHV basis"),
+    (("diesel", "gasoil", "genset"), "diesel-lhv", "diesel on an LHV basis"),
+    (("gasoline", "petrol"), "gasoline-lhv", "gasoline on an LHV basis"),
+    (("coal", "lignite"), "coal-lhv", "coal on an LHV basis"),
+    (("chilled water", "chiller", "cooling load", "chw"), "cooling-7c-30c-ambient",
+     "a 7 C cooling service against a 30 C ambient"),
+)
+
+
+def _infer_reference_from_text(
+    source: Mapping[str, Any],
+    normalized: dict[str, Any],
+    assumptions: list[str],
+) -> None:
+    """Fill an unknown Exergy Factor from ordinary words in the record.
+
+    Only runs when the reporter has given nothing to work from — no fx, no
+    reference, no temperatures, no fuel and basis. If any of those are present
+    they are the answer and this does nothing.
+    """
+
+    if any(normalized.get(field) not in (None, "") for field in
+           ("fx", "exergy_factor", "reference_id", "source_c", "cold_service_c", "chemical_exergy")):
+        return
+
+    # Never attach a factor to a volume or a mass. Inferring "diesel" from a meter
+    # name and applying fx = 1.060 to 4100 GALLONS produced `4346 gallons_ex`,
+    # which reads like a result and is not one. The row needs an energy quantity
+    # first; saying so is more useful than a confident nonsense number.
+    unit = normalized.get("unit")
+    if unit not in (None, "") and is_non_energy_unit(str(unit)):
+        return
+
+    # Search the values the reporter wrote, and the column names they chose, since
+    # a carrier is as often in a header ("Chilled water kWh") as in a cell.
+    haystack = " ".join(
+        f" {value} " for value in
+        [*(str(v) for v in source.values() if v not in (None, "")), *(str(k) for k in source.keys())]
+    ).lower()
+
+    for phrases, reference_id, description in _CARRIER_PHRASES:
+        matched = next((phrase for phrase in phrases if phrase in haystack), None)
+        if matched is None:
+            continue
+        normalized["reference_id"] = reference_id
+        assumptions.append(
+            f"carrier read as {description} from the text '{matched.strip()}' "
+            f"(reference {reference_id}); presumptive screening default — confirm before reporting"
+        )
+        return
+
+
 def _infer_carrier_from_context(normalized: dict[str, Any], warnings: list[str]) -> None:
     unit = normalized.get("unit")
     if unit in (None, ""):
@@ -616,6 +707,16 @@ def _canonical_field(field_name: str) -> str:
 def _canonical_unit(unit: str) -> str:
     cleaned = unit.strip().replace(" ", "_").replace("-", "_")
     base, suffix = split_unit(cleaned)
+    # A two-word energy unit has to be resolved as a WHOLE before the underscore
+    # is read as a carrier suffix. `ton-hours` becomes `ton_hours`, splits to the
+    # mass unit `ton` carrying a `_hours` suffix, and the row then converts to
+    # nothing — every chilled-water reading in a building export came back with a
+    # notation and a blank MWh_ex. Only consulted when the split failed, so
+    # ordinary units keep their existing spelling and casing.
+    if not is_energy_unit(base):
+        whole = canonical_energy_unit(cleaned)
+        if whole in ENERGY_TO_MWH:
+            return whole
     key = _normalize_key(base)
     canonical = UNIT_HINTS.get(key, base)
     return f"{canonical}{suffix}"
@@ -720,38 +821,76 @@ def _format_from_name(name: str, *, content_type: str = "") -> str:
     raise ValueError("could not infer input format")
 
 
-def _write_csv(records: Sequence[Mapping[str, Any]], path: Path) -> None:
-    preferred = [
-        "label",
-        "quantity",
-        "unit",
-        "fx",
-        "tier",
-        "fidelity_tier",
-        "notation",
-        "full_notation",
-        "accessible_exergy",
-        "accessible_exergy_unit",
-        "accessible_exergy_mwh",
-        "reference",
-        "boundary",
-        "basis",
-        "capabilities",
-        "missing_context",
-        "conformance_issues",
-        "assumptions",
-        "warnings",
-    ]
-    fields = list(preferred)
+# What a reader actually needs back: the factor, what it means in comparable
+# terms, how well founded it is, and what to fix. The rest is available with
+# detailed=True.
+_ESSENTIAL_FIELDS = (
+    "fx",
+    "notation",
+    "full_notation",
+    "accessible_exergy",
+    "accessible_exergy_unit",
+    "accessible_exergy_mwh",
+    "fidelity_tier",
+    "reference",
+    "basis",
+    "assumptions",
+    "warnings",
+    "needs_attention",
+    "issues",
+)
+
+_INTERNAL_FIELDS = frozenset({"source", "readiness", "metadata", "schema_version"})
+
+
+def _write_csv(records: Sequence[Mapping[str, Any]], path: Path, *, detailed: bool = False) -> None:
+    """Write the cleaned records, keeping the reporter's own spreadsheet intact.
+
+    THE ORIGINAL COLUMNS COME FIRST AND UNCHANGED. This used to drop them: `source`
+    was explicitly excluded from the output, so `Site`, `Meter`, `Month` and every
+    other column a real spreadsheet carries vanished, and the results could not be
+    joined back to the data they came from. That made the output unusable in a real
+    workflow no matter how correct the numbers were.
+
+    The mental model is now "your file, plus some new columns", which is what
+    anyone running a cleaner expects.
+    """
+
+    source_fields: list[str] = []
+    for record in records:
+        for key in (record.get("source") or {}):
+            if key not in source_fields:
+                source_fields.append(str(key))
+
+    computed: list[str] = []
     for record in records:
         for key in record.keys():
-            if key not in fields and key not in {"source", "readiness", "metadata"}:
-                fields.append(key)
+            if key in _INTERNAL_FIELDS or key in computed:
+                continue
+            if not detailed and key not in _ESSENTIAL_FIELDS:
+                continue
+            computed.append(key)
+    # Keep the essential columns in their documented order rather than whatever
+    # order the first record happened to enumerate.
+    if not detailed:
+        computed = [field for field in _ESSENTIAL_FIELDS if field in computed]
+
+    # A reporter's column called `fx` or `notation` keeps its own name and value;
+    # the computed one moves aside rather than overwriting what they wrote.
+    fields = list(source_fields)
+    renames: dict[str, str] = {}
+    for key in computed:
+        name = key if key not in source_fields else f"qq_{key}"
+        renames[key] = name
+        fields.append(name)
+
     with path.open("w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields, extrasaction="ignore")
         writer.writeheader()
         for record in records:
-            writer.writerow(_csv_ready(record, fields))
+            row = {str(k): v for k, v in (record.get("source") or {}).items()}
+            row.update({renames[key]: record.get(key, "") for key in computed})
+            writer.writerow(_csv_ready(row, fields))
 
 
 def _csv_ready(record: Mapping[str, Any], fields: Sequence[str]) -> dict:

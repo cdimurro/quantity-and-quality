@@ -400,6 +400,7 @@ def cmd_annotate(args: argparse.Namespace) -> int:
         defaults=_load_json_arg(args.defaults),
         assume_default_sink=not args.no_default_sink,
         default_sink_c=args.default_sink_c,
+        detailed=getattr(args, "detailed", False),
     )
     if args.json:
         _emit_json(summary)
@@ -408,8 +409,22 @@ def cmd_annotate(args: argparse.Namespace) -> int:
         print(f"needs attention: {summary['records_needing_attention']}")
         if args.output:
             print(f"wrote: {args.output}")
-        for issue in summary["issues"]:
-            print(f"row {issue['row']}: {issue['field']} - {issue['message']}")
+        # Say which assumptions were made, not only what is missing. A screening
+        # default that nobody sees is the thing that ends up in a published report.
+        presumed = [
+            assumption
+            for record in summary.get("records", [])
+            for assumption in (record.get("assumptions") or [])
+            if "presumptive" in str(assumption)
+        ]
+        if presumed:
+            print(f"\nassumed for {len(presumed)} row(s) — confirm before reporting:")
+            for assumption in sorted(set(presumed)):
+                print(f"  - {assumption}")
+        if summary["issues"]:
+            print("\nstill needs a number from you:")
+            for issue in summary["issues"]:
+                print(f"  row {issue['row']}: {issue['field']} - {issue['message']}")
     return 0 if summary["ok"] else 2
 
 
@@ -517,6 +532,11 @@ def _add_clean_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--defaults", default="", help="JSON object or path with default field values.")
     parser.add_argument("--default-sink-c", type=float, default=20.0)
     parser.add_argument("--no-default-sink", action="store_true", help="Do not assume T0 = 20 C for thermal records.")
+    parser.add_argument(
+        "--detailed",
+        action="store_true",
+        help="Write every computed column. The default keeps your original columns plus the essential few.",
+    )
     parser.add_argument("--json", action="store_true", help="Emit JSON summary instead of text.")
 
 
