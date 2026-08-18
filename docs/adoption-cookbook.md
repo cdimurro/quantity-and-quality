@@ -183,3 +183,49 @@ quantity-quality clean energy.csv --output energy_qq.csv
 It accepts CSV, JSON, JSONL, Excel, DataFrame, SQL, streams, and HTTP(S) sources.
 The output adds `fx`, notation, accessible exergy, methods, assumptions, warnings,
 and validation issues without performing downstream process or economic analysis.
+
+## 10. Use The HTTP API
+
+The optional FastAPI service exposes the same deterministic calculation and
+accounting contracts:
+
+```bash
+python -m pip install "quantity-and-quality[api]"
+quantity-quality serve-api
+```
+
+Open <http://127.0.0.1:8000/docs> for interactive documentation. The main agent
+and application routes are:
+
+```text
+GET  /v1/capabilities
+GET  /v1/calculate/schema
+POST /v1/calculate
+GET  /v1/accounting/schema
+POST /v1/account
+```
+
+Set `QQ_API_REQUIRE_KEY=1` when application-managed API keys are needed.
+Production deployments should add TLS, persistent backed-up storage, working
+SMTP delivery, proxy-level rate limits, logging, monitoring, and an explicit
+`QQ_API_CORS_ORIGINS` list.
+
+## 11. Look Up A Reference Example
+
+Reference examples provide transparent screening defaults:
+
+```bash
+quantity-quality list
+quantity-quality list --category thermal
+quantity-quality lookup heat-80c-standard
+```
+
+```python
+record = qq.lookup("heat-80c-standard", quantity=1.8)
+print(record.full_notation)
+# 1.8 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
+```
+
+Replace these defaults with site-specific measurements when accuracy matters.
+The [reference-data guide](../data/README.md) documents sources, confidence
+classes, fields, notation, verification, and the website export.

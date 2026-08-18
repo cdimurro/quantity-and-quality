@@ -10,6 +10,18 @@ at the carrier that crosses the selected boundary.
 Every request can be sent unchanged to `calculate_stream()`,
 `quantity-quality calculate`, or `POST /v1/calculate`.
 
+At one declared boundary, accessible exergy is `X = E fx`; for a rate it is
+`Xdot = P fx`. Stream quality remains separate from process performance:
+`fx` describes the stream, while exergetic efficiency and exergy destruction
+describe the device or transformation. A high-quality stream can be wasted in
+an irreversible process, and a low-quality stream can be valuable when it is
+well matched to a low-quality demand.
+
+For matched quantities, `fx_supply - fx_demand` is a useful diagnostic. A large
+positive difference identifies avoidable use of a high-quality source for a
+low-quality task. A negative difference means the supply must be upgraded by a
+heat pump, compressor, reactor, electrolyzer, or another conversion process.
+
 ## Mechanical and electrical work
 
 Mechanical modes are:
