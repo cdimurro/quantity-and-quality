@@ -84,6 +84,87 @@ Energy-only stages may omit `fx`; `accounting_method` preserves physical-content
 total-energy-supply, direct, or substitution conventions without treating a
 counterfactual substitution value as physical exergy.
 
+## Direct record contract
+
+The minimum direct record is:
+
+```json
+{
+  "quantity": 1,
+  "unit": "MWh",
+  "exergy_factor": 0.73
+}
+```
+
+Auditable records should also declare the physical context used to calculate
+the factor:
+
+```json
+{
+  "quantity": 1,
+  "unit": "MWh_th",
+  "exergy_factor": 0.170,
+  "source_c": 80,
+  "sink_c": 20,
+  "reference": "20 C thermal sink",
+  "boundary": "delivery point",
+  "basis": "Carnot factor"
+}
+```
+
+Chemical records keep the denominator label separate from its value. For
+example, `energy_basis: "HHV"`, `chemical_exergy: 55.5`, and
+`energy_basis_value: 50.0` make the factor and basis reproducible. Power records
+use `power` and return `accessible_exergy_rate`; they are never silently changed
+from a rate into an energy quantity.
+
+## Reporting and verification
+
+The compact notation is:
+
+```text
+1 MWh, fx = 1.0
+```
+
+Thermal and other reference-dependent records should include enough context to
+recalculate the factor:
+
+```text
+1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
+```
+
+Computed factors retain their claimed precision (`0.170`, not `0.17`). Exact
+conventions are not padded: electricity is written as `fx = 1.0`, not as a
+three-decimal measurement. Quantities are not padded.
+
+The CLI can verify notation embedded in reports, cells, or logs:
+
+```bash
+quantity-quality verify "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"
+```
+
+It exits nonzero if the declared temperatures disagree with the factor, so the
+check can gate a publication pipeline. A record with no declaration bracket is
+reported as not verifiable rather than wrong. Python clients can use
+`verify_notation()` and `parse_energy_notation()` for the same round trip.
+
+The canonical written form stays ASCII, though the parser also accepts `°C`,
+kelvin, and Fahrenheit. Cooling records declare their service and ambient
+temperatures with `Tcold` and `T0`.
+
+## Website export
+
+The static browser calculator consumes a generated subset of this database:
+
+```bash
+quantity-quality export-web-data \
+  --output ../exergy-factor/data/reference_examples.json \
+  --js-output ../exergy-factor/data/reference_examples.js
+```
+
+The synchronous JavaScript bundle and JSON export keep the website and Python
+package aligned to the same canonical records.
+
 ## Contribution standard
 
 New records must declare the reporting boundary, reference environment, carrier,
