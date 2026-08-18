@@ -172,11 +172,13 @@ Example:
 ```python
 import quantity_quality as qq
 
-records = qq.clean_records([
-    {"asset": "Grid meter", "energy_kwh": 845, "reference_id": "electricity-delivered"},
-    {"asset": "Kiln exhaust", "energy_kwh": 2738, "supply_temp_f": 1005.8},
-    {"asset": "Unknown stream", "quantity": 2.738, "unit": "kWh_th", "fx": 0.64},
-])
+records = qq.clean_records(
+    [
+        {"asset": "Grid meter", "energy_kwh": 845, "reference_id": "electricity-delivered"},
+        {"asset": "Kiln exhaust", "energy_kwh": 2738, "supply_temp_f": 1005.8},
+        {"asset": "Unknown stream", "quantity": 2.738, "unit": "kWh_th", "fx": 0.64},
+    ]
+)
 
 for record in records:
     print(record["full_notation"], record["missing_context"])
@@ -290,12 +292,14 @@ print(record.accessible_exergy, record.accessible_exergy_unit)
 Calculate from the measurements you have:
 
 ```python
-result = qq.calculate_stream({
-    "stream_type": "electricity",
-    "power": 100,
-    "power_unit": "kW",
-    "duration_hours": 8,
-})
+result = qq.calculate_stream(
+    {
+        "stream_type": "electricity",
+        "power": 100,
+        "power_unit": "kW",
+        "duration_hours": 8,
+    }
+)
 
 print(result.full_notation)
 # 800 kWh_e, fx = 1.0
@@ -304,21 +308,23 @@ print(result.full_notation)
 Account across end-use boundaries:
 
 ```python
-account = qq.account_energy_chain({
-    "final": {"quantity": 1, "unit": "MWh_e", "fx": 1},
-    "useful": {
-        "quantity": 3,
-        "unit": "MWh_th",
-        "fx": 0.064,
-        "source_c": 40,
-        "sink_c": 20,
-    },
-    "service": {
-        "name": "Warm home",
-        "quantity": 720,
-        "unit": "occupied_comfort_hour",
-    },
-})
+account = qq.account_energy_chain(
+    {
+        "final": {"quantity": 1, "unit": "MWh_e", "fx": 1},
+        "useful": {
+            "quantity": 3,
+            "unit": "MWh_th",
+            "fx": 0.064,
+            "source_c": 40,
+            "sink_c": 20,
+        },
+        "service": {
+            "name": "Warm home",
+            "quantity": 720,
+            "unit": "occupied_comfort_hour",
+        },
+    }
+)
 
 print(account.applied_exergy_mwh)
 # 0.192 MWh_ex

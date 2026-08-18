@@ -68,15 +68,17 @@ three temperatures in its reproducible notation.
 ## 5. Calculate Fuel Energy From Mass Or Volume
 
 ```python
-record = qq.calculate_stream({
-    "stream_type": "fuel",
-    "mass": 100,
-    "mass_unit": "kg",
-    "heating_value": 50,
-    "heating_value_unit": "MJ/kg",
-    "fuel": "natural gas",
-    "basis": "LHV",
-})
+record = qq.calculate_stream(
+    {
+        "stream_type": "fuel",
+        "mass": 100,
+        "mass_unit": "kg",
+        "heating_value": 50,
+        "heating_value_unit": "MJ/kg",
+        "fuel": "natural gas",
+        "basis": "LHV",
+    }
+)
 ```
 
 Always state HHV or LHV. The basis is retained in the unit and notation.
@@ -86,20 +88,24 @@ heating value is stated per unit volume.
 ## 6. Calculate Solar Or Cooling
 
 ```python
-solar = qq.calculate_stream({
-    "stream_type": "solar",
-    "irradiance_w_m2": 800,
-    "area_m2": 50,
-    "duration_hours": 6,
-})
+solar = qq.calculate_stream(
+    {
+        "stream_type": "solar",
+        "irradiance_w_m2": 800,
+        "area_m2": 50,
+        "duration_hours": 6,
+    }
+)
 
-cooling = qq.calculate_stream({
-    "stream_type": "cooling",
-    "quantity": 1,
-    "unit": "MWh_cooling",
-    "cold_service_c": 7,
-    "ambient_sink_c": 30,
-})
+cooling = qq.calculate_stream(
+    {
+        "stream_type": "cooling",
+        "quantity": 1,
+        "unit": "MWh_cooling",
+        "cold_service_c": 7,
+        "ambient_sink_c": 30,
+    }
+)
 ```
 
 ## 7. Discover Inputs Programmatically
