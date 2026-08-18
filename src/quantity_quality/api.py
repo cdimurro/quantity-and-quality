@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Iterable, List, Mapping, Optional, Union
 
@@ -10,13 +11,12 @@ from .core import (
     parse_energy_notation,
     petela_exergy_factor,
     thermal_exergy_factor_c,
+    verify_notation,
 )
 from .diagnostics import exergy_capital_efficiency
-from .intervals import f3_thermal_summary, thermal_interval
 from .model import QuantityQualityRecord
 from .reference import extract_temperature_context, get_reference_example
 from .units import convert_energy, convert_power, is_energy_unit, is_power_unit
-
 
 DEFAULT_SINK_C = 20.0
 
@@ -38,6 +38,17 @@ FUEL_SYMBOLS = {
     "gasoline": "gasoline",
     "crude_oil": "crude",
     "coal": "coal",
+    "biomass": "biomass",
+    "biogas": "biogas",
+    "syngas": "syngas",
+    "ammonia": "NH3",
+    "methanol": "CH3OH",
+    "ethanol": "C2H5OH",
+    "propane": "C3H8",
+    "lpg": "LPG",
+    "biodiesel": "biodiesel",
+    "renewable_diesel": "renewable_diesel",
+    "jet_fuel": "jet_fuel",
 }
 
 
@@ -77,10 +88,87 @@ def report(
 
 
 def from_notation(text: str, **context: object) -> QuantityQualityRecord:
-    """Parse `1 MWh, fx = 0.73` into a high-level record."""
+    """Parse short or full notation without discarding its audit context."""
 
     parsed = parse_energy_notation(text)
-    return report(parsed.quantity, parsed.unit, parsed.exergy_factor, **context)
+    values = dict(context)
+    source_c = values.pop("source_c", parsed.source_c)
+    return_c = values.pop("return_c", parsed.return_c)
+    sink_c = values.pop("sink_c", parsed.sink_c)
+    cold_service_c = values.pop("cold_service_c", parsed.cold_service_c)
+    ambient_sink_c = values.pop(
+        "ambient_sink_c",
+        parsed.sink_c if parsed.cold_service_c is not None else None,
+    )
+    energy_basis = values.pop("energy_basis", parsed.energy_basis)
+
+    method = str(values.pop("method", "supplied"))
+    tier = str(values.pop("tier", ""))
+    reference = str(values.pop("reference", ""))
+    boundary = str(values.pop("boundary", ""))
+    basis = str(values.pop("basis", ""))
+    label = values.pop("label", None)
+    if values:
+        unexpected = ", ".join(sorted(values))
+        raise TypeError(f"unexpected notation context: {unexpected}")
+
+    method_id = None
+    if source_c is not None and return_c is not None and sink_c is not None:
+        method = "thermal" if method == "supplied" else method
+        method_id = "thermal.sensible.integrated.v1"
+        tier = tier or "F2"
+        reference = reference or f"T0 = {float(sink_c):g} C"
+        boundary = boundary or "sensible heat stream"
+        basis = basis or (
+            "integrated sensible-heat factor, "
+            f"supply={float(source_c):g} C, return={float(return_c):g} C, "
+            f"sink={float(sink_c):g} C"
+        )
+    elif source_c is not None and sink_c is not None:
+        method = "thermal" if method == "supplied" else method
+        tier = tier or "F2"
+        reference = reference or f"T0 = {float(sink_c):g} C"
+        boundary = boundary or "thermal stream"
+        basis = basis or (f"Carnot factor, source={float(source_c):g} C, sink={float(sink_c):g} C")
+    elif cold_service_c is not None and ambient_sink_c is not None:
+        method = "cooling" if method == "supplied" else method
+        tier = tier or "F2"
+        reference = reference or f"T0 = {float(ambient_sink_c):g} C"
+        boundary = boundary or "cooling service boundary"
+        basis = basis or (
+            "minimum work potential per unit cooling service, "
+            f"cold={float(cold_service_c):g} C, ambient={float(ambient_sink_c):g} C"
+        )
+
+    warnings = _context_warnings(
+        unit=parsed.unit,
+        reference=reference,
+        boundary=boundary,
+        basis=basis,
+    )
+    verification = verify_notation(text)
+    if verification.verifiable and not verification.agrees:
+        warnings.append("stated Exergy Factor does not agree with the temperatures in the notation")
+
+    return QuantityQualityRecord(
+        quantity=parsed.quantity,
+        unit=parsed.unit,
+        exergy_factor=parsed.exergy_factor,
+        reference=reference,
+        boundary=boundary,
+        basis=basis,
+        method=method,
+        tier=tier,
+        label=str(label) if label is not None else None,
+        source_c=float(source_c) if source_c is not None else None,
+        return_c=float(return_c) if return_c is not None else None,
+        sink_c=float(sink_c) if sink_c is not None else None,
+        cold_service_c=(float(cold_service_c) if cold_service_c is not None else None),
+        ambient_sink_c=(float(ambient_sink_c) if ambient_sink_c is not None else None),
+        energy_basis=str(energy_basis) if energy_basis is not None else None,
+        method_id=method_id,
+        warnings=tuple(warnings),
+    )
 
 
 def thermal(
@@ -243,7 +331,9 @@ def fuel(
         factor = FUEL_FACTORS[fuel_key][basis_key]
     except KeyError as exc:
         known = ", ".join(sorted(FUEL_FACTORS))
-        raise ValueError(f"unknown fuel/basis preset: {fuel} {basis}. Known fuels: {known}") from exc
+        raise ValueError(
+            f"unknown fuel/basis preset: {fuel} {basis}. Known fuels: {known}"
+        ) from exc
     return QuantityQualityRecord(
         quantity=quantity,
         unit=unit or _fuel_unit(fuel_key, basis_key),
@@ -314,6 +404,7 @@ def lookup(
 
     example = get_reference_example(reference_id)
     temperatures = extract_temperature_context(example)
+    energy_basis = str(example.get("fuel_basis", "") or "") or None
     return QuantityQualityRecord(
         quantity=quantity,
         unit=unit or str(example["quantity_unit"]),
@@ -327,6 +418,7 @@ def lookup(
         sink_c=temperatures.get("sink_c"),
         cold_service_c=temperatures.get("cold_service_c"),
         ambient_sink_c=temperatures.get("ambient_sink_c"),
+        energy_basis=energy_basis,
         reference_id=reference_id,
         tier=str(example.get("tier", "")) or "F1",
         metadata={
@@ -348,13 +440,17 @@ def source_temperature_for_fx_c(fx: float, *, sink_c: float = DEFAULT_SINK_C) ->
     """Return the thermal source temperature implied by `fx` and a sink."""
 
     factor = float(fx)
-    if factor < 0 or factor >= 1:
+    if not math.isfinite(factor) or factor < 0 or factor >= 1:
         raise ValueError("thermal fx must be greater than or equal to 0 and less than 1")
     sink_k = float(sink_c) + 273.15
+    if not math.isfinite(sink_k) or sink_k <= 0:
+        raise ValueError("sink temperature must be finite and above absolute zero")
     return sink_k / (1.0 - factor) - 273.15
 
 
-def annotate_file(input_path: Union[str, Path], *, output: Optional[Union[str, Path]] = None) -> dict:
+def annotate_file(
+    input_path: Union[str, Path], *, output: Optional[Union[str, Path]] = None
+) -> dict:
     """Annotate CSV/JSON energy records with notation, fx, context, and warnings."""
 
     from .clean import clean_file

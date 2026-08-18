@@ -4,7 +4,6 @@ from typing import List
 
 from .core import format_energy_notation
 
-
 COMMON_NOTATION_EXAMPLES: List[dict] = [
     {
         "name": "Grid electricity delivered",

@@ -1,0 +1,8 @@
+{
+  "stream_type": "thermonuclear",
+  "reaction_preset": "dt_fusion",
+  "reaction_count": 1e20,
+  "nuclear_channel": "neutron",
+  "boundary": "immediate reaction-product boundary",
+  "label": "D-T neutron product energy"
+}

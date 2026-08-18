@@ -17,7 +17,6 @@ from .api import (
 from .model import QuantityQualityRecord
 from .units import convert_energy, is_energy_unit
 
-
 SCENARIO_SCHEMA_VERSION = "quantity_quality_scenario_v1"
 
 
@@ -33,7 +32,9 @@ def load_scenario(path: Union[str, Path]) -> dict:
         try:
             import yaml  # type: ignore
         except ImportError as exc:
-            raise ImportError("YAML scenarios require the 'scenario' extra: pip install quantity-and-quality[scenario]") from exc
+            raise ImportError(
+                "YAML scenarios require the 'scenario' extra: pip install quantity-and-quality[scenario]"
+            ) from exc
         data = yaml.safe_load(text)
     else:
         raise ValueError("scenario files must be .json, .yaml, or .yml")
@@ -88,7 +89,9 @@ def record_from_mapping(source: Mapping[str, Any]) -> QuantityQualityRecord:
 
     reference_id = source.get("reference_id") or source.get("preset")
     if reference_id:
-        record = lookup(str(reference_id), quantity=quantity, unit=unit if source.get("unit") else None)
+        record = lookup(
+            str(reference_id), quantity=quantity, unit=unit if source.get("unit") else None
+        )
         return _replace_label(record, label)
 
     kind = str(source.get("type", source.get("method", ""))).lower().strip()
@@ -140,7 +143,9 @@ def record_from_mapping(source: Mapping[str, Any]) -> QuantityQualityRecord:
             label=label,
         )
 
-    raise ValueError(f"scenario record '{label}' needs reference_id, type, temperatures, fuel, notation, or fx")
+    raise ValueError(
+        f"scenario record '{label}' needs reference_id, type, temperatures, fuel, notation, or fx"
+    )
 
 
 def scenario_to_markdown(result: Mapping[str, Any]) -> str:
@@ -148,7 +153,7 @@ def scenario_to_markdown(result: Mapping[str, Any]) -> str:
 
     rows = result.get("rows", [])
     lines = [
-        f"# {result.get('name', 'Scenario')}",
+        f"# {str(result.get('name', 'Scenario')).replace(chr(10), ' ')}",
         "",
         "| Option | Energy | fx | MWh_ex | Unavailable | Cost/MWh | Cost/MWh_ex | CO2/MWh | CO2/MWh_ex |",
         "|---|---:|---:|---:|---:|---:|---:|---:|---:|",
@@ -156,7 +161,7 @@ def scenario_to_markdown(result: Mapping[str, Any]) -> str:
     for row in rows:
         lines.append(
             "| {label} | {energy} | {fx} | {mwh_ex} | {unavailable} | {cost} | {cost_ex} | {co2} | {co2_ex} |".format(
-                label=row["label"],
+                label=_escape_markdown(str(row["label"])),
                 energy=f"{_fmt(row['quantity'])} {row['unit']}",
                 fx=_fmt(row["fx"]),
                 mwh_ex=_fmt(row.get("accessible_exergy_mwh")),
@@ -190,12 +195,17 @@ def scenario_to_table(result: Mapping[str, Any]) -> str:
         max(len(headings[index]), *(len(row[index]) for row in rendered))
         for index in range(len(headings))
     ]
-    lines = [_format_table_row(headings, widths), _format_table_row(tuple("-" * width for width in widths), widths)]
+    lines = [
+        _format_table_row(headings, widths),
+        _format_table_row(tuple("-" * width for width in widths), widths),
+    ]
     lines.extend(_format_table_row(row, widths) for row in rendered)
     return "\n".join(lines)
 
 
-def _scenario_row(option: Mapping[str, Any], *, demand_record: Optional[QuantityQualityRecord]) -> dict:
+def _scenario_row(
+    option: Mapping[str, Any], *, demand_record: Optional[QuantityQualityRecord]
+) -> dict:
     record = record_from_mapping(option)
     row = record.as_dict()
     row["id"] = str(option.get("id", option.get("reference_id", row.get("label", ""))))
@@ -217,8 +227,16 @@ def _scenario_row(option: Mapping[str, Any], *, demand_record: Optional[Quantity
             row["co2_kg_per_mwh_ex"] = float(option["co2_kg_per_mwh"]) / record.fx
     if demand_record is not None and row.get("energy_mwh") is not None:
         row["demand_fx"] = demand_record.fx
-        row["grade_mismatch_mwh_ex"] = row["energy_mwh"] * max(0.0, record.fx - demand_record.fx)
-        row["grade_shortfall_mwh_ex"] = row["energy_mwh"] * max(0.0, demand_record.fx - record.fx)
+        demand_mwh = (
+            convert_energy(demand_record.quantity, demand_record.unit, "MWh")
+            if is_energy_unit(demand_record.unit)
+            else None
+        )
+        if demand_mwh is not None:
+            matched_mwh = min(row["energy_mwh"], demand_mwh)
+            row["matched_energy_mwh"] = matched_mwh
+            row["grade_mismatch_mwh_ex"] = matched_mwh * max(0.0, record.fx - demand_record.fx)
+            row["grade_shortfall_mwh_ex"] = matched_mwh * max(0.0, demand_record.fx - record.fx)
     return row
 
 
@@ -241,6 +259,10 @@ def _replace_label(record: QuantityQualityRecord, label: str) -> QuantityQuality
         fuel=record.fuel,
         energy_basis=record.energy_basis,
         reference_id=record.reference_id,
+        method_id=record.method_id,
+        carrier_registry_version=record.carrier_registry_version,
+        uncertainty=record.uncertainty,
+        data_quality_flag=record.data_quality_flag,
         assumptions=record.assumptions,
         warnings=record.warnings,
         metadata=record.metadata,
@@ -259,6 +281,10 @@ def _fmt(value: object) -> str:
     except (TypeError, ValueError):
         return str(value)
     return f"{number:.6g}"
+
+
+def _escape_markdown(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("|", "\\|").replace("\n", " ")
 
 
 def _format_table_row(values: tuple[str, ...], widths: list[int]) -> str:

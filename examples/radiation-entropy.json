@@ -1,0 +1,10 @@
+{
+  "stream_type": "radiation",
+  "quantity": 1,
+  "unit": "kWh_rad",
+  "radiation_model": "spectral_entropy",
+  "radiation_entropy_j_k": 3600,
+  "reference_temperature_k": 300,
+  "boundary": "net radiation receiving boundary",
+  "label": "externally evaluated radiation energy and entropy"
+}

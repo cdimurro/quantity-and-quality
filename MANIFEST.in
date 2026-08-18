@@ -1,0 +1,19 @@
+include CHANGELOG.md
+include CITATION.cff
+include CODE_OF_CONDUCT.md
+include CONTRIBUTING.md
+include SECURITY.md
+recursive-include data *.csv *.json *.md
+recursive-include docs *.md
+recursive-include examples *.csv *.json *.py
+prune paper
+include paper/Makefile
+include paper/README.md
+include paper/Quantity_and_Quality_Third_Draft.tex
+include paper/quantity-and-quality-standard-reporting-framework.pdf
+include paper/ece_comparison.pdf
+include paper/f3_district_heat_backcast.pdf
+include paper/reference_temp_sensitivity.pdf
+include paper/theta_loss_mapping.pdf
+recursive-include paper/generated *.csv
+recursive-include scripts *.py

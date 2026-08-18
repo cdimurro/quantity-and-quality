@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/cdimurro/quantity-and-quality/main/data/energy_accounting_request.schema.json",
+  "title": "Primary-Secondary-Final-Useful-Applied Exergy Accounting Request",
+  "description": "A partial or complete energy chain ending at Applied Exergy and an optional non-energy service outcome. Energy-only statistical stages are accepted when fx is unavailable.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "label": {"type": "string"},
+    "boundary": {"type": "string"},
+    "primary": {"$ref": "#/$defs/energyStage"},
+    "secondary": {"$ref": "#/$defs/energyStage"},
+    "final": {"$ref": "#/$defs/energyStage"},
+    "useful": {"$ref": "#/$defs/energyStage"},
+    "applied_exergy": {"$ref": "#/$defs/appliedExergy"},
+    "end_use_exergy_efficiency": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "output_exergy_unit": {
+      "type": "string",
+      "pattern": "_[eE][xX](_|$)",
+      "default": "MWh_ex"
+    },
+    "service": {"$ref": "#/$defs/energyService"}
+  },
+  "anyOf": [
+    {"required": ["primary"]},
+    {"required": ["secondary"]},
+    {"required": ["final"]},
+    {"required": ["useful"]},
+    {"required": ["applied_exergy"]}
+  ],
+  "dependentRequired": {
+    "end_use_exergy_efficiency": ["final"]
+  },
+  "$defs": {
+    "energyStage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quantity", "unit"],
+      "properties": {
+        "quantity": {"type": "number", "minimum": 0},
+        "unit": {"type": "string", "minLength": 1},
+        "fx": {"type": "number", "minimum": 0},
+        "exergy_factor": {"type": "number", "minimum": 0},
+        "label": {"type": "string"},
+        "reference": {"type": "string"},
+        "boundary": {"type": "string"},
+        "basis": {"type": "string"},
+        "method": {"type": "string"},
+        "method_id": {"type": "string"},
+        "tier": {"type": "string", "enum": ["", "F0", "F1", "F2", "F3", "F4"]},
+        "source_c": {"type": "number"},
+        "return_c": {"type": "number"},
+        "sink_c": {"type": "number"},
+        "cold_service_c": {"type": "number"},
+        "ambient_sink_c": {"type": "number"},
+        "fuel": {"type": "string"},
+        "energy_basis": {"type": "string"},
+        "reference_id": {"type": "string"},
+        "stream_type": {"type": "string"},
+        "quantity_method_id": {"type": "string"},
+        "calculation_inputs": {"type": "object"},
+        "metadata": {"type": "object"},
+        "assumptions": {"type": "array", "items": {"type": "string"}},
+        "warnings": {"type": "array", "items": {"type": "string"}},
+        "accounting_method": {
+          "type": "string",
+          "enum": ["reported", "direct", "physical_energy_content", "total_energy_supply", "substitution"],
+          "default": "reported",
+          "description": "Statistical convention used for the energy quantity. Substitution is a counterfactual fossil-equivalent basis and must not include fx."
+        },
+        "source_dataset": {"type": "string"},
+        "source_variable": {"type": "string"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {"accounting_method": {"const": "substitution"}},
+            "required": ["accounting_method"]
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {"required": ["fx"]},
+                {"required": ["exergy_factor"]}
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "appliedExergy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["quantity", "unit"],
+      "properties": {
+        "quantity": {"type": "number", "minimum": 0},
+        "unit": {"type": "string", "pattern": "_[eE][xX](_|$)"},
+        "basis": {"type": "string"},
+        "boundary": {"type": "string"}
+      }
+    },
+    "energyService": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "quantity", "unit"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "quantity": {"type": "number", "minimum": 0},
+        "unit": {
+          "type": "string",
+          "minLength": 1,
+          "description": "An outcome unit such as passenger_mile, comfort_hour, or cold_beer_served; never J, Wh, or W."
+        },
+        "category": {"type": "string"},
+        "boundary": {"type": "string"},
+        "notes": {"type": "string"}
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "label": "Electric motor providing shaft work",
+  "boundary": "Fuel supply through conveyor task",
+  "primary": {
+    "quantity": 2.5,
+    "unit": "MWh_LHV_NG",
+    "fx": 1.04,
+    "label": "Primary natural gas",
+    "energy_basis": "LHV",
+    "accounting_method": "physical_energy_content"
+  },
+  "secondary": {
+    "quantity": 1.05,
+    "unit": "MWh_e",
+    "fx": 1.0,
+    "label": "Electricity at generator output",
+    "method": "electricity"
+  },
+  "final": {
+    "quantity": 1,
+    "unit": "MWh_e",
+    "fx": 1.0,
+    "label": "Electricity delivered to motor",
+    "method": "electricity"
+  },
+  "useful": {
+    "quantity": 0.9,
+    "unit": "MWh_mech",
+    "fx": 1.0,
+    "label": "Shaft work at motor output",
+    "boundary": "Motor shaft to conveyor",
+    "method": "mechanical"
+  },
+  "service": {
+    "name": "Conveyor movement",
+    "quantity": 12000,
+    "unit": "tonne_metre",
+    "category": "material movement"
+  }
+}

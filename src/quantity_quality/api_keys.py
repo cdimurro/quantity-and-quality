@@ -7,12 +7,12 @@ import secrets
 import smtplib
 import sqlite3
 import sys
+from contextlib import closing
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from pathlib import Path
-from typing import Mapping, Optional
-
+from typing import Optional
 
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
@@ -44,6 +44,7 @@ def issue_api_key(
     name: str = "",
     organization: str = "",
     intended_use: str = "",
+    terms_version: str = "",
     db_path: Optional[Path] = None,
 ) -> ApiKeyIssueResult:
     """Create a free API key, store only its hash, and deliver the secret."""
@@ -54,7 +55,19 @@ def issue_api_key(
     now = _now()
     path = db_path or api_key_db_path()
     _init_db(path)
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
+        request_limit = int(os.environ.get("QQ_API_KEY_REQUESTS_PER_DAY", "3"))
+        if request_limit > 0:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat(timespec="seconds")
+            recent = connection.execute(
+                "SELECT COUNT(*) FROM api_key_requests WHERE email = ? AND created_at >= ?",
+                (normalized_email, cutoff),
+            ).fetchone()[0]
+            if recent >= request_limit:
+                raise ValueError(
+                    "API key request limit reached for this email address; try again later"
+                )
+
         connection.execute(
             """
             INSERT INTO api_keys (
@@ -75,19 +88,30 @@ def issue_api_key(
         connection.execute(
             """
             INSERT INTO api_key_requests (
-              email, key_prefix, name, organization, intended_use, created_at
+              email, key_prefix, name, organization, intended_use, created_at,
+              terms_version, terms_accepted_at
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
-            (normalized_email, prefix, name, organization, intended_use, now),
+            (
+                normalized_email,
+                prefix,
+                name,
+                organization,
+                intended_use,
+                now,
+                terms_version,
+                now if terms_version else "",
+            ),
         )
-
-    method, detail = deliver_api_key(
-        normalized_email,
-        api_key,
-        name=name,
-        organization=organization,
-    )
+        # Delivery is part of the transaction. If SMTP fails, the unusable key and
+        # request record are rolled back instead of becoming orphaned rows.
+        method, detail = deliver_api_key(
+            normalized_email,
+            api_key,
+            name=name,
+            organization=organization,
+        )
     return ApiKeyIssueResult(
         email=normalized_email,
         prefix=prefix,
@@ -107,7 +131,7 @@ def validate_api_key(api_key: str, *, db_path: Optional[Path] = None) -> bool:
         return False
     prefix = api_key[:16]
     digest = hash_api_key(api_key)
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         row = connection.execute(
             """
             SELECT id
@@ -125,6 +149,26 @@ def validate_api_key(api_key: str, *, db_path: Optional[Path] = None) -> bool:
             (_now(), row[0]),
         )
     return True
+
+
+def revoke_api_key(api_key: str, *, db_path: Optional[Path] = None) -> bool:
+    """Revoke a key and return whether an active matching key was found."""
+
+    if not api_key:
+        return False
+    path = db_path or api_key_db_path()
+    if not path.exists():
+        return False
+    with closing(sqlite3.connect(path)) as connection, connection:
+        cursor = connection.execute(
+            """
+            UPDATE api_keys
+            SET revoked_at = ?
+            WHERE key_prefix = ? AND key_hash = ? AND revoked_at IS NULL
+            """,
+            (_now(), api_key[:16], hash_api_key(api_key)),
+        )
+        return cursor.rowcount > 0
 
 
 def normalize_email(email: str) -> str:
@@ -198,7 +242,9 @@ def _send_smtp_email(
     message["Subject"] = "Your Exergy Factor API key"
     message["From"] = sender
     message["To"] = email
-    message.set_content(_email_body(email=email, api_key=api_key, name=name, organization=organization))
+    message.set_content(
+        _email_body(email=email, api_key=api_key, name=name, organization=organization)
+    )
 
     with smtplib.SMTP(host, port, timeout=20) as smtp:
         if use_tls:
@@ -216,7 +262,9 @@ def _email_body(
     organization: str = "",
 ) -> str:
     greeting = f"Hi {name.strip()}," if name.strip() else "Hi,"
-    base_url = os.environ.get("QQ_API_PUBLIC_BASE_URL", "https://api.exergyfactor.com/v1").rstrip("/")
+    base_url = os.environ.get("QQ_API_PUBLIC_BASE_URL", "https://api.exergyfactor.com/v1").rstrip(
+        "/"
+    )
     org_line = f"\nOrganization: {organization.strip()}" if organization.strip() else ""
     return f"""{greeting}
 
@@ -239,7 +287,7 @@ def _generate_api_key() -> str:
 
 def _init_db(path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    with sqlite3.connect(path) as connection:
+    with closing(sqlite3.connect(path)) as connection, connection:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS api_keys (
@@ -266,10 +314,23 @@ def _init_db(path: Path) -> None:
               name TEXT NOT NULL DEFAULT '',
               organization TEXT NOT NULL DEFAULT '',
               intended_use TEXT NOT NULL DEFAULT '',
-              created_at TEXT NOT NULL
+              created_at TEXT NOT NULL,
+              terms_version TEXT NOT NULL DEFAULT '',
+              terms_accepted_at TEXT NOT NULL DEFAULT ''
             )
             """
         )
+        request_columns = {
+            row[1] for row in connection.execute("PRAGMA table_info(api_key_requests)")
+        }
+        if "terms_version" not in request_columns:
+            connection.execute(
+                "ALTER TABLE api_key_requests ADD COLUMN terms_version TEXT NOT NULL DEFAULT ''"
+            )
+        if "terms_accepted_at" not in request_columns:
+            connection.execute(
+                "ALTER TABLE api_key_requests ADD COLUMN terms_accepted_at TEXT NOT NULL DEFAULT ''"
+            )
         connection.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_prefix ON api_keys(key_prefix)")
         connection.execute("CREATE INDEX IF NOT EXISTS idx_api_keys_email ON api_keys(email)")
 

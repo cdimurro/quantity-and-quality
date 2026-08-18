@@ -1,0 +1,14 @@
+{
+  "stream_type": "fluid",
+  "fluid": "Water",
+  "mass": 1000,
+  "mass_unit": "kg",
+  "inlet_pressure_pa": 1000000,
+  "inlet_vapor_quality": 1,
+  "outlet_pressure_pa": 1000000,
+  "outlet_vapor_quality": 0,
+  "reported_energy_basis": "enthalpy_change",
+  "reference_temperature_c": 20,
+  "reference_pressure_pa": 101325,
+  "boundary": "steam delivery through condensate outlet"
+}

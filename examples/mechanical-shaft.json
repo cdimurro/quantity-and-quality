@@ -1,0 +1,8 @@
+{
+  "stream_type": "mechanical",
+  "mechanical_mode": "shaft",
+  "torque_nm": 500,
+  "rotational_speed_rpm": 1800,
+  "duration_hours": 2,
+  "boundary": "motor shaft to driven equipment"
+}

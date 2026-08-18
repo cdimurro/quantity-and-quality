@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Iterable, List, Mapping, Optional, Sequence
@@ -9,12 +10,12 @@ from typing import Iterable, List, Mapping, Optional, Sequence
 from .core import (
     chemical_exergy_factor,
     cooling_exergy_factor_c,
+    sensible_heat_exergy_factor_c,
     thermal_exergy_factor_c,
 )
 from .model import QuantityQualityRecord
 from .reference import extract_temperature_context, get_reference_example
 from .units import is_non_energy_unit
-
 
 REPORT_SCHEMA_VERSION = "quantity_quality_report_v1"
 
@@ -62,20 +63,38 @@ def annotate_record(raw: Mapping[str, object]) -> AnnotatedRecord:
     source = dict(raw)
     issues: List[ValidationIssue] = []
 
+    has_quantity = source.get("quantity") not in (None, "")
+    has_power = source.get("power") not in (None, "")
+    if has_quantity and has_power:
+        issues.append(ValidationIssue("quantity/power", "provide quantity or power, not both"))
+    is_power_record = has_power and not has_quantity
     quantity = _optional_number(source, "quantity", issues)
     if quantity is None:
         quantity = _optional_number(source, "power", issues)
-    if quantity is None:
+    if quantity is None and not has_quantity and not has_power:
         issues.append(ValidationIssue("quantity", "quantity or power is required"))
     unit = _string(source, "unit", issues)
+    dimensional_unit_issue = bool(unit and is_non_energy_unit(unit))
+    if dimensional_unit_issue:
+        issues.append(
+            ValidationIssue(
+                "unit",
+                f"{unit} measures volume or mass, not energy. Convert it with the fuel's "
+                "heating value before applying an Exergy Factor.",
+            )
+        )
 
-    factor, reference_record, method = _factor_from_record(source, issues)
+    if dimensional_unit_issue:
+        factor, reference_record, method = None, None, "unknown"
+    else:
+        factor, reference_record, method = _factor_from_record(source, issues)
 
     reference_temperatures = extract_temperature_context(reference_record or {})
-    source_c = _optional_number(source, "source_c", issues)
-    sink_c = _optional_number(source, "sink_c", issues)
-    cold_service_c = _optional_number(source, "cold_service_c", issues)
-    ambient_sink_c = _optional_number(source, "ambient_sink_c", issues)
+    source_c = _optional_temperature_number(source, "source_c", issues)
+    return_c = _optional_temperature_number(source, "return_c", issues)
+    sink_c = _optional_temperature_number(source, "sink_c", issues)
+    cold_service_c = _optional_temperature_number(source, "cold_service_c", issues)
+    ambient_sink_c = _optional_temperature_number(source, "ambient_sink_c", issues)
     if source_c is None:
         source_c = reference_temperatures.get("source_c")
     if sink_c is None:
@@ -90,7 +109,9 @@ def annotate_record(raw: Mapping[str, object]) -> AnnotatedRecord:
         "quantity": quantity,
         "unit": unit,
         "exergy_factor": factor,
-        "reference": str(source.get("reference", "") or (reference_record or {}).get("reference", "")),
+        "reference": str(
+            source.get("reference", "") or (reference_record or {}).get("reference", "")
+        ),
         "boundary": str(source.get("boundary", "") or (reference_record or {}).get("boundary", "")),
         "operating_basis": str(
             source.get("operating_basis", source.get("basis", ""))
@@ -98,13 +119,23 @@ def annotate_record(raw: Mapping[str, object]) -> AnnotatedRecord:
         ),
     }
     if factor is not None:
-        _apply_method_defaults(record, method, source_c, sink_c, cold_service_c, ambient_sink_c)
+        _apply_method_defaults(
+            record,
+            method,
+            source_c,
+            return_c,
+            sink_c,
+            cold_service_c,
+            ambient_sink_c,
+        )
 
-    if quantity is not None and unit and factor is not None:
+    if quantity is not None and unit and factor is not None and not dimensional_unit_issue:
         warnings = list(source.get("_warnings", []) or [])
         assumptions = list(source.get("_assumptions", []) or [])
         if "_th" in unit.lower() and source_c is None and sink_c is None and not reference_record:
-            warnings.append("thermal record is usable but not self-verifying without source_c and sink_c")
+            warnings.append(
+                "thermal record is usable but not self-verifying without source_c and sink_c"
+            )
         qq_record = QuantityQualityRecord(
             quantity=quantity,
             unit=unit,
@@ -115,18 +146,43 @@ def annotate_record(raw: Mapping[str, object]) -> AnnotatedRecord:
             method=method,
             label=str(source.get("label", "")) or None,
             source_c=source_c,
+            return_c=return_c,
             sink_c=sink_c,
             cold_service_c=cold_service_c,
             ambient_sink_c=ambient_sink_c,
             fuel=str(source.get("fuel", "")) or None,
-            energy_basis=str(source.get("energy_basis", "")) or None,
+            energy_basis=(
+                str(source.get("energy_basis", ""))
+                or str((reference_record or {}).get("fuel_basis", ""))
+                or None
+            ),
             reference_id=str(source.get("reference_id", "")) or None,
+            method_id=(
+                str(source.get("method_id", ""))
+                or (
+                    "thermal.sensible.integrated.v1"
+                    if method == "thermal" and return_c is not None
+                    else ""
+                )
+                or None
+            ),
+            stream_type=str(source.get("stream_type", "")) or None,
+            quantity_method_id=str(source.get("quantity_method_id", "")) or None,
+            calculation_inputs=(
+                source.get("calculation_inputs", {})
+                if isinstance(source.get("calculation_inputs", {}), Mapping)
+                else {}
+            ),
+            carrier_registry_version=str(source.get("carrier_registry_version", "0.1") or "0.1"),
+            uncertainty=source.get("uncertainty"),
+            data_quality_flag=str(source.get("data_quality_flag", "")) or None,
             tier=str(source.get("tier", source.get("fidelity_tier", ""))) or "",
             assumptions=tuple(assumptions),
             warnings=tuple(warnings),
             metadata={
                 "reference_source": (reference_record or {}).get("source", ""),
                 "calculation": (reference_record or {}).get("calculation", ""),
+                "energy_basis_value": source.get("energy_basis_value", ""),
                 "stream_id": source.get("stream_id", ""),
                 "interval": source.get("interval", ""),
                 "timestamp": source.get("timestamp", ""),
@@ -136,6 +192,18 @@ def annotate_record(raw: Mapping[str, object]) -> AnnotatedRecord:
         )
         record.update(qq_record.as_dict())
         record["schema_version"] = REPORT_SCHEMA_VERSION
+        if is_power_record:
+            power = record.pop("quantity")
+            exergy_rate = record.pop("accessible_exergy")
+            exergy_rate_unit = record.pop("accessible_exergy_unit")
+            record.update(
+                {
+                    "type": "power",
+                    "power": power,
+                    "accessible_exergy_rate": exergy_rate,
+                    "accessible_exergy_rate_unit": exergy_rate_unit,
+                }
+            )
     else:
         record["notation"] = ""
         record["full_notation"] = ""
@@ -160,6 +228,7 @@ def _apply_method_defaults(
     record: dict,
     method: str,
     source_c: Optional[float],
+    return_c: Optional[float],
     sink_c: Optional[float],
     cold_service_c: Optional[float],
     ambient_sink_c: Optional[float],
@@ -167,9 +236,16 @@ def _apply_method_defaults(
     if method == "thermal" and source_c is not None and sink_c is not None:
         record["reference"] = record["reference"] or f"T0 = {sink_c:g} C"
         record["boundary"] = record["boundary"] or "thermal stream"
-        record["operating_basis"] = (
-            record["operating_basis"] or f"Carnot factor, source={source_c:g} C, sink={sink_c:g} C"
-        )
+        if return_c is not None:
+            record["operating_basis"] = record["operating_basis"] or (
+                "integrated sensible-heat factor, "
+                f"supply={source_c:g} C, return={return_c:g} C, sink={sink_c:g} C"
+            )
+        else:
+            record["operating_basis"] = (
+                record["operating_basis"]
+                or f"Carnot factor, source={source_c:g} C, sink={sink_c:g} C"
+            )
     if method == "cooling" and cold_service_c is not None and ambient_sink_c is not None:
         record["reference"] = record["reference"] or f"T0 = {ambient_sink_c:g} C"
         record["boundary"] = record["boundary"] or "cooling service boundary"
@@ -179,7 +255,9 @@ def _apply_method_defaults(
         )
     if method == "chemical":
         record["boundary"] = record["boundary"] or "fuel inventory or fuel-flow meter"
-        record["operating_basis"] = record["operating_basis"] or "chemical exergy divided by declared energy basis"
+        record["operating_basis"] = (
+            record["operating_basis"] or "chemical exergy divided by declared energy basis"
+        )
 
 
 def annotate_records(records: Iterable[Mapping[str, object]]) -> List[AnnotatedRecord]:
@@ -221,6 +299,7 @@ def write_annotated_records(records: Sequence[AnnotatedRecord], path: Path) -> N
         fields = [
             "schema_version",
             "quantity",
+            "power",
             "unit",
             "exergy_factor",
             "fx",
@@ -229,6 +308,8 @@ def write_annotated_records(records: Sequence[AnnotatedRecord], path: Path) -> N
             "notation",
             "accessible_exergy",
             "accessible_exergy_unit",
+            "accessible_exergy_rate",
+            "accessible_exergy_rate_unit",
             "full_notation",
             "accessible_exergy_mwh",
             "accessible_exergy_mw",
@@ -238,14 +319,21 @@ def write_annotated_records(records: Sequence[AnnotatedRecord], path: Path) -> N
             "basis",
             "needs_attention",
             "method",
+            "method_id",
+            "stream_type",
+            "quantity_method_id",
+            "carrier_registry_version",
             "capabilities",
             "missing_context",
             "conformance_issues",
             "source_c",
+            "return_c",
             "sink_c",
             "cold_service_c",
             "ambient_sink_c",
             "reference_id",
+            "uncertainty",
+            "data_quality_flag",
             "warnings",
             "assumptions",
         ]
@@ -274,10 +362,16 @@ def validation_summary(records: Sequence[AnnotatedRecord]) -> dict:
 
 
 def _csv_record(record: Mapping[str, object], fields: Sequence[str]) -> dict:
-    row = {field: record.get(field, "") for field in fields}
-    for field in ("warnings", "assumptions", "capabilities", "missing_context", "conformance_issues"):
-        if isinstance(row.get(field), list):
-            row[field] = "; ".join(str(value) for value in row[field])
+    row = {field_name: record.get(field_name, "") for field_name in fields}
+    for field_name in (
+        "warnings",
+        "assumptions",
+        "capabilities",
+        "missing_context",
+        "conformance_issues",
+    ):
+        if isinstance(row.get(field_name), list):
+            row[field_name] = "; ".join(str(value) for value in row[field_name])
     return row
 
 
@@ -292,8 +386,8 @@ def _factor_from_record(
         except (TypeError, ValueError):
             issues.append(ValidationIssue("exergy_factor", "must be numeric"))
             return None, None, "supplied"
-        if factor < 0:
-            issues.append(ValidationIssue("exergy_factor", "must be nonnegative"))
+        if not math.isfinite(factor) or factor < 0:
+            issues.append(ValidationIssue("exergy_factor", "must be finite and nonnegative"))
             return None, None, "supplied"
         return factor, None, "supplied"
 
@@ -306,14 +400,23 @@ def _factor_from_record(
             issues.append(ValidationIssue("reference_id", f"unknown reference id: {reference_id}"))
             return None, None, "reference"
 
-    if _has_any(source, ("source_c", "sink_c")):
+    if _has_any(source, ("source_c", "return_c", "sink_c")):
         source_c = _temperature_number(source, "source_c", issues)
+        return_c = None
+        if source.get("return_c") not in (None, ""):
+            return_c = _temperature_number(source, "return_c", issues)
         sink_c = _temperature_number(source, "sink_c", issues)
         if source_c is not None and sink_c is not None:
             try:
+                if return_c is not None:
+                    return (
+                        sensible_heat_exergy_factor_c(source_c, return_c, sink_c),
+                        None,
+                        "thermal",
+                    )
                 return thermal_exergy_factor_c(source_c, sink_c), None, "thermal"
             except ValueError as exc:
-                issues.append(ValidationIssue("source_c/sink_c", str(exc)))
+                issues.append(ValidationIssue("source_c/return_c/sink_c", str(exc)))
         return None, None, "thermal"
 
     if _has_any(source, ("cold_service_c", "ambient_sink_c")):
@@ -326,9 +429,14 @@ def _factor_from_record(
                 issues.append(ValidationIssue("cold_service_c/ambient_sink_c", str(exc)))
         return None, None, "cooling"
 
-    if _has_any(source, ("chemical_exergy", "energy_basis")):
+    if _has_any(source, ("chemical_exergy", "energy_basis_value")):
         chemical = _number(source, "chemical_exergy", issues)
-        basis = _number(source, "energy_basis", issues)
+        basis_field = (
+            "energy_basis_value"
+            if source.get("energy_basis_value") not in (None, "")
+            else "energy_basis"
+        )
+        basis = _number(source, basis_field, issues)
         if chemical is not None and basis is not None:
             try:
                 return chemical_exergy_factor(chemical, basis), None, "chemical"
@@ -374,7 +482,9 @@ def _has_any(source: Mapping[str, object], keys: Sequence[str]) -> bool:
     return any(source.get(key) not in (None, "") for key in keys)
 
 
-def _number(source: Mapping[str, object], field_name: str, issues: List[ValidationIssue]) -> Optional[float]:
+def _number(
+    source: Mapping[str, object], field_name: str, issues: List[ValidationIssue]
+) -> Optional[float]:
     value = source.get(field_name)
     if value in (None, ""):
         issues.append(ValidationIssue(field_name, "is required"))
@@ -384,8 +494,8 @@ def _number(source: Mapping[str, object], field_name: str, issues: List[Validati
     except (TypeError, ValueError):
         issues.append(ValidationIssue(field_name, "must be numeric"))
         return None
-    if numeric < 0:
-        issues.append(ValidationIssue(field_name, "must be nonnegative"))
+    if not math.isfinite(numeric) or numeric < 0:
+        issues.append(ValidationIssue(field_name, "must be finite and nonnegative"))
         return None
     return numeric
 
@@ -400,10 +510,14 @@ def _temperature_number(
         issues.append(ValidationIssue(field_name, "is required"))
         return None
     try:
-        return float(value)
+        numeric = float(value)
     except (TypeError, ValueError):
         issues.append(ValidationIssue(field_name, "must be numeric"))
         return None
+    if not math.isfinite(numeric):
+        issues.append(ValidationIssue(field_name, "must be finite"))
+        return None
+    return numeric
 
 
 def _optional_number(
@@ -419,8 +533,27 @@ def _optional_number(
     except (TypeError, ValueError):
         issues.append(ValidationIssue(field_name, "must be numeric"))
         return None
-    if numeric < 0:
-        issues.append(ValidationIssue(field_name, "must be nonnegative"))
+    if not math.isfinite(numeric) or numeric < 0:
+        issues.append(ValidationIssue(field_name, "must be finite and nonnegative"))
+        return None
+    return numeric
+
+
+def _optional_temperature_number(
+    source: Mapping[str, object],
+    field_name: str,
+    issues: List[ValidationIssue],
+) -> Optional[float]:
+    value = source.get(field_name)
+    if value in (None, ""):
+        return None
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        issues.append(ValidationIssue(field_name, "must be numeric"))
+        return None
+    if not math.isfinite(numeric):
+        issues.append(ValidationIssue(field_name, "must be finite"))
         return None
     return numeric
 

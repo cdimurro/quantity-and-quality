@@ -1,5 +1,202 @@
 # Changelog
 
+## 0.12.0 - Fields, plasma, and nuclear reactions
+
+### Added
+
+- Electromagnetic field inventories for uniform and cell-integrated linear
+  fields, measured normal Poynting flux, and RMS plane waves.
+- Nuclear reaction accounting from mass defect, Q-value and event count, molar
+  reaction extent, matching rest-mass lists, or sourced fusion reactivity.
+- A D–T fusion preset that conserves its declared 17.6 MeV total while keeping
+  14.1 MeV neutron and 3.5 MeV alpha product streams distinct.
+- Ideal-species plasma inventories with separate species temperatures or
+  supplied distribution means, bulk motion, ionization/excitation energy, and
+  optional electromagnetic field energy.
+- Radiation availability from co-boundary energy and entropy for externally
+  evaluated non-blackbody spectra.
+- Carrier tokens for electromagnetic fields, nuclear totals, neutrons, charged
+  particles, neutrinos, and plasma, plus packaged examples and a focused model
+  guide.
+
+### Safety and accuracy
+
+- Reaction-product energy is not mislabeled as reactor heat, electricity, or
+  photon radiation. Downstream transport, deposition, and conversion remain
+  separate boundaries.
+- Density/reactivity fusion calculations require provenance for the supplied
+  `<sigma v>`. Rest-mass Q-value calculations require an explicit convention so
+  atomic and nuclear masses are not mixed.
+- Relativistic plasma temperatures are rejected by the classical Maxwellian
+  path. Non-Maxwellian and higher-fidelity models can supply independently
+  evaluated mean energy and quality without hard-coding a speculative model.
+- The stream request schema is 1.2, the carrier registry is 0.3, and Python,
+  CLI, HTTP, and agent discovery expose the same contracts.
+
+## 0.11.0 - Physical energy forms
+
+### Added
+
+- First-principles quantity calculators for shaft, kinetic, gravitational,
+  rotational, elastic, hydraulic, electrical-field, battery-throughput, and
+  phase-change energy.
+- Physical flow exergy from supplied enthalpy and entropy, a transparent ideal-
+  gas approximation, or an optional version-recorded CoolProp backend for
+  steam, refrigerants, cryogens, compressed gases, and other supported fluids.
+- State-to-state fluid accounting that can report enthalpy change as energy and
+  physical-exergy change as its quality, without treating pressure alone as a
+  complete thermodynamic state.
+- Humid-air physical and composition exergy relative to a declared ambient
+  state, including an optional relative-humidity conversion path.
+- First-class `biomass` and `bioenergy` requests. Variable fuels require a
+  measured chemical-exergy ratio, complete supplied component properties, or
+  an explicitly sourced factor; dry-basis moisture adjustments are labeled.
+- Generic blackbody and work-equivalent radiation, ideal-mixture separation,
+  and nuclear mass-defect or fission-inventory calculations. Nuclear inventory
+  requires an explicit accessible fraction.
+- Friction, rolling resistance, and aerodynamic-drag loss models. They report
+  mechanical work lost, residual heat exergy, and exergy destroyed separately.
+- Agent-discoverable request fields and examples for every new model, a physical
+  stream guide, and optional `fluids` installation extra.
+
+### Changed
+
+- Carrier registry 0.2 adds radiative, cooling, biomass, biogas, syngas,
+  alcohol-fuel, and ammonia unit families.
+- Radiation is distinct from the solar convenience model, and fluid-state
+  distinguishability includes thermal, pressure, and composition differences.
+- The unified calculation schema is version 1.1 and supports the new physical
+  forms through the same Python, CLI, HTTP, and agent-native contract.
+
+### Safety and accuracy
+
+- Friction and air resistance are modeled as process losses rather than new
+  energy forms. At ambient dissipation temperature their energy remains heat,
+  their residual heat exergy is zero, and the incoming mechanical exergy is
+  destroyed.
+- Heterogeneous bioenergy receives no universal default factor. Non-ideal
+  chemical mixing and variable-speed or variable-force losses must use a more
+  appropriate property model or interval integration.
+
+## 0.10.0 - Distinguishability and Applied Exergy
+
+### Added
+
+- Every stream record now exposes the physical distinguishability represented by
+  its Exergy Factor, including source/reference states and gradients when known.
+  Distinguishability is evidence for `fx`, not a second multiplier.
+- `account_energy_chain()` keeps primary, secondary, final, and useful energy
+  alongside their physical exergy stages, then identifies Applied Exergy at the
+  last device-to-task boundary.
+- Optional secondary energy/exergy now represents transformed transportable
+  carriers between primary conversion and final delivery.
+- Energy-only statistical stages can omit `fx`; source dataset and variable
+  provenance are retained without inventing exergy.
+- Primary-energy conventions distinguish direct, physical-energy-content,
+  total-energy-supply, and substitution methods. Counterfactual substitution
+  values are accepted but cannot be converted to physical exergy.
+- Energy services are separate outcome records with non-energy units such as
+  `passenger_mile`, `occupied_comfort_hour`, or `cold_beer_served`.
+- Applied Exergy can be derived from useful energy and useful-stage `fx`, from
+  final exergy and end-use exergy efficiency, or supplied directly. Independent
+  paths are reconciled and inconsistent single-input balances are rejected.
+- `quantity-quality account`, `POST /v1/account`, `GET /v1/accounting/schema`,
+  and a packaged JSON Schema expose the same accounting contract to users and
+  agents.
+- Pinned numerical benchmarks from NIST, IAPWS-IF97, EIA, XAI4HEAT, and the
+  OWID Energy dataset, plus a read-only full public-data validation command.
+
+### Changed
+
+- Equal source/reference temperatures now return `fx = 0`, making the
+  indistinguishable equilibrium state explicit.
+- The canonical paper now defines distinguishability, Applied Exergy, the
+  primary-secondary-final-useful crosswalk, and the separation between energy
+  and societal services.
+- Fuel-volume shortcuts now use explicitly versioned EIA 2026 U.S.-average
+  estimates (1,036 Btu/scf natural gas and 5.689 MMBtu/bbl crude oil), carry an
+  `estimated_reference` quality flag, and warn that a measured heating value is
+  required for a meter-specific result. `boe` remains a separate nominal 5.8
+  MMBtu convention.
+
+### Fixed
+
+- Replaced sparse saturated-steam-table interpolation—which differed from
+  IAPWS-IF97 by as much as 1.31 °C—with the explicit IF97 region-4 equation.
+- Compound refrigeration-unit aliases such as `ton_hour` and `ton_hrs` now
+  normalize as energy rather than being mistaken for mass.
+- Known volume and mass units are rejected even when an explicit `fx` is
+  supplied, preventing dimensionally invalid output such as `gallons_ex`.
+- Scientific notation now round-trips through the public notation parser, with
+  verification tolerance based on the printed exponent and precision.
+- Solar and inverse-temperature helpers reject non-finite or physically invalid
+  reference states, and `_ex` validation no longer accepts unrelated suffixes
+  such as `_extra`.
+- The XAI4HEAT sensitivity analysis now excludes reversed or ambient-
+  indistinguishable stream states. This corrects valid-interval counts without
+  materially changing the delivery-weighted portfolio factors.
+
+## 0.9.0 - Focused stream calculation
+
+### Added
+
+- `calculate_stream()` accepts one JSON-shaped request from Python, the CLI, the
+  HTTP API, or an AI agent and returns energy quantity, Exergy Factor, and
+  accessible exergy through the existing record contract.
+- Physical-input quantity paths for power × time, sensible heat
+  (`m cp (Ts - Tr)`), fuel mass or volume × heating value, and solar irradiance
+  × area × time.
+- Fuel quality can use either a bundled factor or a declared chemical-exergy to
+  HHV/LHV ratio.
+- `quantity-quality calculate`, `quantity-quality capabilities`,
+  `POST /v1/calculate`, and `GET /v1/capabilities` expose the same calculation
+  and discovery surface.
+- Machine-readable calculation errors, quantity method identifiers, original
+  calculation inputs, and stream types.
+- Reproducible integrated sensible-heat notation with supply, return, and
+  reference temperatures.
+
+### Changed
+
+- Product documentation now focuses on calculating and reporting individual
+  streams. Technology, process, emissions, health, and economic analysis is
+  explicitly delegated to The Exergy Imperative.
+- Return temperature is distinct from the reference environment throughout the
+  parser and cleaner, allowing the integrated sensible-heat calculation to be
+  represented correctly.
+
+## 0.8.1 - Release stabilization
+
+### Fixed
+
+- Full thermal, cooling, and fuel notation now round-trips through the high-level
+  API and cleaner without losing temperatures or basis metadata.
+- Tiny nonzero energy quantities no longer format as zero, and bare `Mcf` and
+  `MMcf` natural-gas billing units now follow the documented conversion.
+- Blank and non-finite spreadsheet values become row-level validation issues.
+  Pressure is only interpreted through the saturated-steam table when the row
+  explicitly describes steam, a boiler, or condensate.
+- Invalid domain inputs to calculation endpoints return structured client errors
+  instead of HTTP 500 responses.
+- Power records preserve `power`, `accessible_exergy_rate`, and rate units.
+- Scenario grade mismatch is calculated over matched supply and demand energy.
+- Fuel lookups retain HHV/LHV basis, and capability metadata no longer labels
+  solar or chemical records self-verifying when notation verification cannot
+  reproduce them.
+
+### Changed
+
+- Split chemical `energy_basis` labels from numeric `energy_basis_value` values
+  and aligned the input/output JSON Schema with all supported record shapes.
+- API-key requests require terms acceptance, are rate-limited per email, roll
+  back when delivery fails, and can be revoked. SQLite connections are closed.
+- URL cleaning now permits only HTTP(S), rejects embedded credentials, and has
+  configurable time and response-size limits.
+- The 40-page proposed-framework paper is canonical. Its source, analysis
+  scripts, generated tables, and figures are included for reproducibility.
+- Development checks now include Ruff, coverage, generated-data synchronization,
+  schema validation, distribution inspection, and isolated wheel smoke tests.
+
 ## 0.8.0 - Fuel volumes that name their fuel
 
 The website converted `scf(natural gas)`, `Mcf`, `MMcf`, `bbl(oil)` and `boe` to

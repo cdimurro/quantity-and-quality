@@ -1,0 +1,31 @@
+name: Reference-factor correction
+description: Propose a correction or addition to the bundled reference data.
+title: "[Reference data]: "
+labels: [reference-data]
+body:
+  - type: input
+    id: record
+    attributes:
+      label: Record ID or proposed carrier
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: Proposed value and calculation
+      description: Show enough working for another person to reproduce the value.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Carrier, boundary, basis, and reference environment
+    validations:
+      required: true
+  - type: input
+    id: source
+    attributes:
+      label: Stable source
+      description: DOI, standard/table identifier, or versioned public URL.
+    validations:
+      required: true

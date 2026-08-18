@@ -1,6 +1,8 @@
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+.coverage
+coverage.xml
 __pycache__/
 *.py[cod]
 *.egg-info/
@@ -17,13 +19,22 @@ runtime/
 *.xdv
 *.toc
 
-# Paper drafts, build artifacts and figure scripts stay out of the repo: they are
-# ~3 MB of superseded revisions that would sit in every clone forever. The one
-# published PDF is tracked; the drafts belong in a Zenodo deposit or a release
-# asset. A `git add -A` swept them in once, so they are ignored rather than
-# merely untracked.
+# Superseded paper drafts and LaTeX build artifacts stay out of the repository.
+# The canonical source, reproducibility scripts, generated tables, figures, and
+# public PDF are explicitly retained below so the published analysis is auditable.
 paper/*
 !paper/quantity-and-quality-standard-reporting-framework.pdf
+!paper/Quantity_and_Quality_Third_Draft.tex
+!paper/Makefile
+!paper/README.md
+!paper/generated/
+!paper/generated/*.csv
+!paper/ece_comparison.pdf
+!paper/f3_district_heat_backcast.pdf
+!paper/reference_temp_sensitivity.pdf
+!paper/theta_loss_mapping.pdf
 scripts/*
 !scripts/sync_reference_data.py
+!scripts/analyze_xai4heat.py
+!scripts/generate_paper_figures.py
 nul

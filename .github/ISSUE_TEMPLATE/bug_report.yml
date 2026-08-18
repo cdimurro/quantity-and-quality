@@ -1,0 +1,33 @@
+name: Bug report
+description: Report incorrect behavior in the library, CLI, cleaner, schema, or API.
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Please do not report security vulnerabilities here; use SECURITY.md.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: 0.8.1, commit, Python version
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the record, notation, or command and the complete error.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Reference, boundary, and basis
+      description: For numerical issues, state the reference environment, reporting boundary, carrier, denominator basis, and source.

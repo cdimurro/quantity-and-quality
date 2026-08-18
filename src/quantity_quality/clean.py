@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import csv
 import json
+import math
 import re
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Mapping, Optional, Sequence, Union
+from urllib.parse import urlparse
 from urllib.request import urlopen
 
 from .core import parse_energy_notation
@@ -19,7 +21,6 @@ from .units import (
     is_power_unit,
     split_unit,
 )
-
 
 RecordMapping = Mapping[str, Union[str, int, float, Callable[[Mapping[str, Any]], Any], None]]
 
@@ -64,7 +65,9 @@ FIELD_ALIASES = {
     "reference_id": ("reference_id", "example_id", "preset", "reference_example", "qq_reference"),
     "reference": ("reference", "reference_environment", "reference_sink", "sink_reference"),
     "boundary": ("boundary", "reporting_boundary", "meter_boundary", "measurement_boundary"),
-    "basis": ("basis", "operating_basis", "method", "calculation_basis"),
+    "basis": ("basis", "operating_basis", "calculation_basis"),
+    "method": ("method",),
+    "method_id": ("method_id", "calculation_method_id", "model_id"),
     "tier": ("tier", "fidelity_tier", "fx_tier", "quality_tier"),
     "stream_id": ("stream_id", "stream", "tag", "meter_id", "asset_id"),
     "interval": ("interval", "interval_length", "interval_minutes", "time_interval"),
@@ -113,9 +116,6 @@ FIELD_ALIASES = {
         "reference_temperature_c",
         "ambient_c",
         "ambient_temp_c",
-        "return_c",
-        "return_temp_c",
-        "return_temperature_c",
         "t0_c",
         "t_0_c",
     ),
@@ -127,8 +127,6 @@ FIELD_ALIASES = {
         "reference_temp_f",
         "ambient_f",
         "ambient_temp_f",
-        "return_f",
-        "return_temp_f",
         "t0_f",
         "t_0_f",
     ),
@@ -140,16 +138,26 @@ FIELD_ALIASES = {
         "reference_temp_k",
         "ambient_k",
         "ambient_temp_k",
-        "return_k",
-        "return_temp_k",
         "t0_k",
         "t_0_k",
     ),
+    "return_c": ("return_c", "return_temp_c", "return_temperature_c", "tr_c"),
+    "return_f": ("return_f", "return_temp_f", "return_temperature_f", "tr_f"),
+    "return_k": ("return_k", "return_temp_k", "return_temperature_k", "tr_k"),
     "cold_service_c": ("cold_service_c", "cold_c", "chilled_water_c", "cooling_temp_c", "tcold_c"),
     "ambient_sink_c": ("ambient_sink_c", "heat_rejection_c", "rejection_temp_c", "cooling_sink_c"),
     "chemical_exergy": ("chemical_exergy", "chemical_exergy_value", "exergy_content"),
-    "energy_basis": ("energy_basis", "fuel_basis", "basis_value", "hhv_lhv", "heating_value_basis"),
+    "energy_basis": ("energy_basis", "fuel_basis", "hhv_lhv", "heating_value_basis"),
+    "energy_basis_value": (
+        "energy_basis_value",
+        "basis_value",
+        "heating_value",
+        "energy_denominator",
+    ),
     "fuel": ("fuel", "fuel_type", "carrier", "energy_carrier"),
+    "carrier_registry_version": ("carrier_registry_version", "registry_version"),
+    "uncertainty": ("uncertainty", "fx_uncertainty"),
+    "data_quality_flag": ("data_quality_flag", "quality_flag", "qa_flag"),
 }
 
 
@@ -212,8 +220,11 @@ def clean_record(
     annotated = annotate_record(normalized)
     payload = annotated.record
     payload["source"] = dict(raw)
-    if annotated.issues:
-        payload["issues"] = [issue.as_dict() for issue in annotated.issues]
+    issues = [issue.as_dict() for issue in annotated.issues]
+    issues.extend(normalized.get("_normalization_issues", []))
+    if issues:
+        payload["issues"] = issues
+        payload["needs_attention"] = True
     return payload
 
 
@@ -294,11 +305,30 @@ def clean_url(
     mapping: Optional[RecordMapping] = None,
     defaults: Optional[Mapping[str, Any]] = None,
     file_format: Optional[str] = None,
+    timeout: float = 30.0,
+    max_bytes: int = 10 * 1024 * 1024,
 ) -> dict:
-    """Load and clean CSV, JSON, or JSONL data from a URL."""
+    """Load and clean CSV, JSON, or JSONL data from an HTTP(S) URL.
 
-    with urlopen(url) as response:
-        content = response.read().decode("utf-8")
+    Downloads are bounded by ``timeout`` and ``max_bytes`` so an unavailable or
+    unexpectedly large source cannot hang or exhaust a batch job.
+    """
+
+    parsed_url = urlparse(url)
+    if parsed_url.scheme not in {"http", "https"} or not parsed_url.netloc:
+        raise ValueError("URL input must use http:// or https://")
+    if parsed_url.username or parsed_url.password:
+        raise ValueError("URL input must not contain credentials")
+    if timeout <= 0:
+        raise ValueError("timeout must be positive")
+    if max_bytes <= 0:
+        raise ValueError("max_bytes must be positive")
+
+    with urlopen(url, timeout=timeout) as response:
+        raw_content = response.read(max_bytes + 1)
+        if len(raw_content) > max_bytes:
+            raise ValueError(f"URL response exceeds the {max_bytes}-byte limit")
+        content = raw_content.decode("utf-8")
         content_type = response.headers.get("content-type", "")
     fmt = file_format or _format_from_name(url, content_type=content_type)
     records = _loads_records(content, fmt)
@@ -374,7 +404,9 @@ def load_json(path: Union[str, Path]) -> list[dict]:
 
 def load_jsonl(path: Union[str, Path]) -> list[dict]:
     records = []
-    for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), start=1):
+    for line_number, line in enumerate(
+        Path(path).read_text(encoding="utf-8").splitlines(), start=1
+    ):
         stripped = line.strip()
         if not stripped:
             continue
@@ -389,7 +421,9 @@ def load_excel(path: Union[str, Path], *, sheet_name: Union[str, int] = 0) -> li
     try:
         import pandas as pd  # type: ignore
     except ImportError as exc:
-        raise ImportError("Excel input requires pandas with an Excel engine such as openpyxl") from exc
+        raise ImportError(
+            "Excel input requires pandas with an Excel engine such as openpyxl"
+        ) from exc
     return pd.read_excel(path, sheet_name=sheet_name).to_dict(orient="records")
 
 
@@ -454,12 +488,13 @@ def normalize_record(
     _apply_mapping(source, normalized, mapping or {}, warnings)
     _apply_aliases(source, normalized)
     _parse_notation(normalized)
+    _split_energy_basis(normalized)
     _infer_quantity_and_unit_from_keys(source, normalized, warnings)
     _normalize_units(normalized)
     _convert_temperatures(normalized, warnings)
     _infer_carrier_from_context(normalized, warnings)
     _normalize_fx(normalized, source, warnings)
-    _apply_fuel_volume(normalized, assumptions)
+    _apply_fuel_volume(normalized, assumptions, warnings)
     _apply_fuel_reference(normalized)
     # A temperature the reporter wrote in prose beats a generic carrier default,
     # so this runs first: "44F supply" should rate that chilled water at 44 F, not
@@ -469,7 +504,11 @@ def normalize_record(
     # Last resort, after every explicit route has had its chance.
     _infer_reference_from_text(source, normalized, assumptions)
 
-    if assume_default_sink and normalized.get("source_c") not in (None, "") and normalized.get("sink_c") in (None, ""):
+    if (
+        assume_default_sink
+        and normalized.get("source_c") not in (None, "")
+        and normalized.get("sink_c") in (None, "")
+    ):
         normalized["sink_c"] = default_sink_c
         assumptions.append(f"default reference sink assumed: T0 = {default_sink_c:g} C")
 
@@ -497,10 +536,40 @@ def _parse_notation(normalized: dict[str, Any]) -> None:
     notation = normalized.get("notation")
     if notation in (None, ""):
         return
-    parsed = parse_energy_notation(str(notation))
+    try:
+        parsed = parse_energy_notation(str(notation))
+    except ValueError as exc:
+        normalized.setdefault("_normalization_issues", []).append(
+            {"field": "notation", "message": str(exc)}
+        )
+        return
     normalized.setdefault("quantity", parsed.quantity)
     normalized.setdefault("unit", parsed.unit)
     normalized.setdefault("fx", parsed.exergy_factor)
+    if parsed.source_c is not None:
+        normalized.setdefault("source_c", parsed.source_c)
+    if parsed.return_c is not None:
+        normalized.setdefault("return_c", parsed.return_c)
+    if parsed.cold_service_c is not None:
+        normalized.setdefault("cold_service_c", parsed.cold_service_c)
+    if parsed.cold_service_c is not None and parsed.sink_c is not None:
+        normalized.setdefault("ambient_sink_c", parsed.sink_c)
+    elif parsed.sink_c is not None:
+        normalized.setdefault("sink_c", parsed.sink_c)
+    if parsed.energy_basis:
+        normalized.setdefault("energy_basis", parsed.energy_basis)
+
+
+def _split_energy_basis(normalized: dict[str, Any]) -> None:
+    """Separate a basis label (HHV/LHV) from a numeric denominator value."""
+
+    value = normalized.get("energy_basis")
+    if value in (None, "") or normalized.get("energy_basis_value") not in (None, ""):
+        return
+    numeric = _as_float(value)
+    if numeric is not None:
+        normalized["energy_basis_value"] = numeric
+        normalized.pop("energy_basis", None)
 
 
 def _apply_mapping(
@@ -576,9 +645,14 @@ def _convert_temperatures(normalized: dict[str, Any], warnings: list[str]) -> No
         ("source_k", "source_c", lambda value: value - 273.15),
         ("sink_f", "sink_c", lambda value: (value - 32.0) * 5.0 / 9.0),
         ("sink_k", "sink_c", lambda value: value - 273.15),
+        ("return_f", "return_c", lambda value: (value - 32.0) * 5.0 / 9.0),
+        ("return_k", "return_c", lambda value: value - 273.15),
     )
     for source_field, target_field, converter in conversions:
-        if normalized.get(target_field) not in (None, "") or normalized.get(source_field) in (None, ""):
+        if normalized.get(target_field) not in (None, "") or normalized.get(source_field) in (
+            None,
+            "",
+        ):
             continue
         value = _as_float(normalized[source_field])
         if value is None:
@@ -598,17 +672,28 @@ _TEXT_TEMP_RE = re.compile(
     r"(?:deg(?:rees)?\.?\s*)?(?P<unit>[CFK])(?![A-Za-z])",
 )
 
-# Saturated steam: gauge or absolute pressure is what a plant records, but the
-# Exergy Factor needs the temperature the heat is actually delivered at. Water
-# saturation temperature against absolute pressure, bar -> degrees C.
-_STEAM_SATURATION_BAR_C = (
-    (0.5, 81.32), (1.0, 99.61), (1.013, 100.00), (1.5, 111.35), (2.0, 120.21),
-    (3.0, 133.53), (4.0, 143.61), (5.0, 151.83), (6.0, 158.83), (8.0, 170.41),
-    (10.0, 179.89), (12.0, 187.96), (15.0, 198.30), (20.0, 212.38), (25.0, 223.95),
-    (30.0, 233.85), (40.0, 250.36), (50.0, 263.94),
+# IAPWS-IF97 region-4 coefficients for saturation temperature as a function of
+# pressure. The explicit equation avoids the 1.31 C interpolation error found
+# between nodes in the former sparse lookup table.
+_IF97_REGION4_N = (
+    0.11670521452767e4,
+    -0.72421316703206e6,
+    -0.17073846940092e2,
+    0.12020824702470e5,
+    -0.32325550322333e7,
+    0.14915108613530e2,
+    -0.48232657361591e4,
+    0.40511340542057e6,
+    -0.23855557567849,
+    0.65017534844798e3,
 )
+_IF97_TRIPLE_PRESSURE_BAR = 0.00611213
+_IF97_CRITICAL_PRESSURE_BAR = 220.64
 
-_PSIG_RE = re.compile(r"(?<![\d.])(?P<value>\d{1,4}(?:\.\d+)?)\s*(?P<unit>psig|psia|psi|barg|bara|bar|kpa)(?![a-z])", re.IGNORECASE)
+_PSIG_RE = re.compile(
+    r"(?<![\d.])(?P<value>\d{1,4}(?:\.\d+)?)\s*(?P<unit>psig|psia|psi|barg|bara|bar|kpa)(?![a-z])",
+    re.IGNORECASE,
+)
 
 _ATMOSPHERIC_BAR = 1.01325
 
@@ -616,22 +701,29 @@ _ATMOSPHERIC_BAR = 1.01325
 def steam_saturation_temperature_c(pressure_bar_absolute: float) -> Optional[float]:
     """Saturation temperature of water at an absolute pressure, in degrees C.
 
-    Linear interpolation over a standard steam table. Adequate for the screening
-    this framework does; it is not a substitute for IAPWS-IF97 in a design
-    calculation, and the record says so.
+    Uses the explicit region-4 equation in the IAPWS Industrial Formulation 1997.
+    ``None`` is returned outside the liquid-vapour saturation range from the
+    triple point to the critical point.
     """
 
     pressure = float(pressure_bar_absolute)
-    table = _STEAM_SATURATION_BAR_C
-    if pressure < table[0][0] or pressure > table[-1][0]:
+    if (
+        not math.isfinite(pressure)
+        or pressure < _IF97_TRIPLE_PRESSURE_BAR
+        or pressure > _IF97_CRITICAL_PRESSURE_BAR
+    ):
         return None
-    for (low_p, low_t), (high_p, high_t) in zip(table, table[1:]):
-        if low_p <= pressure <= high_p:
-            if high_p == low_p:
-                return low_t
-            span = (pressure - low_p) / (high_p - low_p)
-            return low_t + span * (high_t - low_t)
-    return None
+    pressure_mpa = pressure / 10.0
+    beta = pressure_mpa**0.25
+    n1, n2, n3, n4, n5, n6, n7, n8, n9, n10 = _IF97_REGION4_N
+    e_value = beta * beta + n3 * beta + n6
+    f_value = n1 * beta * beta + n4 * beta + n7
+    g_value = n2 * beta * beta + n5 * beta + n8
+    discriminant = f_value * f_value - 4.0 * e_value * g_value
+    d_value = 2.0 * g_value / (-f_value - math.sqrt(discriminant))
+    inner = (n10 + d_value) ** 2 - 4.0 * (n9 + n10 * d_value)
+    temperature_k = (n10 + d_value - math.sqrt(inner)) / 2.0
+    return temperature_k - 273.15
 
 
 def _steam_temperature_from_text(text: str) -> Optional[tuple[float, str]]:
@@ -673,8 +765,18 @@ def _infer_temperature_from_text(
     Only runs when no temperature was supplied through a proper field.
     """
 
-    if any(normalized.get(field) not in (None, "") for field in
-           ("source_c", "source_f", "source_k", "cold_service_c", "fx", "exergy_factor", "reference_id")):
+    if any(
+        normalized.get(field) not in (None, "")
+        for field in (
+            "source_c",
+            "source_f",
+            "source_k",
+            "cold_service_c",
+            "fx",
+            "exergy_factor",
+            "reference_id",
+        )
+    ):
         return
 
     for key, raw_value in source.items():
@@ -683,7 +785,9 @@ def _infer_temperature_from_text(
         text = str(raw_value)
         # A quantity column is a number, not a temperature; only prose can carry
         # a temperature safely, and prose has a unit letter attached to it.
-        steam = _steam_temperature_from_text(text)
+        steam = (
+            _steam_temperature_from_text(text) if _has_steam_context(source, normalized) else None
+        )
         if steam is not None:
             temperature, quoted = steam
             normalized["source_c"] = round(temperature, 1)
@@ -713,6 +817,19 @@ def _infer_temperature_from_text(
         return
 
 
+def _has_steam_context(source: Mapping[str, Any], normalized: Mapping[str, Any]) -> bool:
+    """Require an explicit steam/water context before treating pressure as steam."""
+
+    haystack = " ".join(
+        [*(str(key) for key in source), *(str(value) for value in source.values())]
+    ).lower()
+    unit = str(normalized.get("unit", "")).lower()
+    return any(
+        phrase in haystack or phrase in unit
+        for phrase in ("steam", "boiler", "condensate", "saturated vapor", "saturated vapour")
+    )
+
+
 # Ordinary words people actually put in a meter register, mapped to the reference
 # example that already answers them.
 #
@@ -728,21 +845,38 @@ def _infer_temperature_from_text(
 # overridable — a screening default, never a measurement. Anything the reporter
 # states explicitly wins; this only fills a gap that would otherwise be blank.
 _CARRIER_PHRASES: tuple[tuple[tuple[str, ...], str, str], ...] = (
-    (("main electric", "electricity", "electric meter", "grid electric", "kwh meter",
-      "power meter", "electric", "grid import"), "electricity-delivered",
-     "delivered electricity"),
+    (
+        (
+            "main electric",
+            "electricity",
+            "electric meter",
+            "grid electric",
+            "kwh meter",
+            "power meter",
+            "electric",
+            "grid import",
+        ),
+        "electricity-delivered",
+        "delivered electricity",
+    ),
     (("shaft work", "motor shaft"), "shaft-work", "mechanical shaft work"),
     (("pv ", "photovoltaic", "solar dc", "solar pv"), "pv-dc-output", "PV DC output"),
     (("battery discharge", "battery export"), "battery-discharge", "battery discharge"),
-    (("natural gas", "nat gas", "natgas", " ng ", "gas boiler", "boiler gas"),
-     "methane-hhv", "natural gas on an HHV basis, approximated as methane"),
+    (
+        ("natural gas", "nat gas", "natgas", " ng ", "gas boiler", "boiler gas"),
+        "methane-hhv",
+        "natural gas on an HHV basis, approximated as methane",
+    ),
     (("methane", "biomethane", "rng"), "methane-hhv", "methane on an HHV basis"),
     (("hydrogen", " h2 "), "hydrogen-hhv", "hydrogen on an HHV basis"),
     (("diesel", "gasoil", "genset"), "diesel-lhv", "diesel on an LHV basis"),
     (("gasoline", "petrol"), "gasoline-lhv", "gasoline on an LHV basis"),
     (("coal", "lignite"), "coal-lhv", "coal on an LHV basis"),
-    (("chilled water", "chiller", "cooling load", "chw"), "cooling-7c-30c-ambient",
-     "a 7 C cooling service against a 30 C ambient"),
+    (
+        ("chilled water", "chiller", "cooling load", "chw"),
+        "cooling-7c-30c-ambient",
+        "a 7 C cooling service against a 30 C ambient",
+    ),
 )
 
 
@@ -758,8 +892,17 @@ def _infer_reference_from_text(
     they are the answer and this does nothing.
     """
 
-    if any(normalized.get(field) not in (None, "") for field in
-           ("fx", "exergy_factor", "reference_id", "source_c", "cold_service_c", "chemical_exergy")):
+    if any(
+        normalized.get(field) not in (None, "")
+        for field in (
+            "fx",
+            "exergy_factor",
+            "reference_id",
+            "source_c",
+            "cold_service_c",
+            "chemical_exergy",
+        )
+    ):
         return
 
     # Never attach a factor to a volume or a mass. Inferring "diesel" from a meter
@@ -773,8 +916,11 @@ def _infer_reference_from_text(
     # Search the values the reporter wrote, and the column names they chose, since
     # a carrier is as often in a header ("Chilled water kWh") as in a cell.
     haystack = " ".join(
-        f" {value} " for value in
-        [*(str(v) for v in source.values() if v not in (None, "")), *(str(k) for k in source.keys())]
+        f" {value} "
+        for value in [
+            *(str(v) for v in source.values() if v not in (None, "")),
+            *(str(k) for k in source.keys()),
+        ]
     ).lower()
 
     for phrases, reference_id, description in _CARRIER_PHRASES:
@@ -804,19 +950,27 @@ def _infer_carrier_from_context(normalized: dict[str, Any], warnings: list[str])
         warnings.append("inferred cooling carrier from cold service temperature")
 
 
-def _normalize_fx(normalized: dict[str, Any], source: Mapping[str, Any], warnings: list[str]) -> None:
+def _normalize_fx(
+    normalized: dict[str, Any], source: Mapping[str, Any], warnings: list[str]
+) -> None:
     if normalized.get("fx") in (None, ""):
         return
     factor = _as_float(normalized["fx"])
     if factor is None:
         return
     key_text = " ".join(str(key).lower() for key in source.keys())
-    if factor > 1.0 and factor <= 100.0 and ("percent" in key_text or "pct" in key_text or "%" in key_text):
+    if (
+        factor > 1.0
+        and factor <= 100.0
+        and ("percent" in key_text or "pct" in key_text or "%" in key_text)
+    ):
         normalized["fx"] = factor / 100.0
         warnings.append("converted percentage quality factor to fractional fx")
 
 
-def _apply_fuel_volume(normalized: dict[str, Any], assumptions: list[str]) -> None:
+def _apply_fuel_volume(
+    normalized: dict[str, Any], assumptions: list[str], warnings: list[str]
+) -> None:
     """Turn a fuel volume whose unit names its fuel into an energy quantity.
 
     `bbl(oil)` and `scf(natural gas)` carry their fuel in the unit, so a published
@@ -843,6 +997,10 @@ def _apply_fuel_volume(normalized: dict[str, Any], assumptions: list[str]) -> No
         f"{quantity:g} {unit} converted to energy at {note}; the Exergy Factor is applied to the "
         f"energy, not the volume, and the basis is {basis}"
     )
+    warnings.append(
+        "fuel-volume energy is an estimated reference conversion, not a meter-specific "
+        "heating value; provide the measured HHV or LHV for an exact result"
+    )
 
 
 def _apply_fuel_reference(normalized: dict[str, Any]) -> None:
@@ -859,7 +1017,9 @@ def _apply_fuel_reference(normalized: dict[str, Any]) -> None:
         normalized["reference_id"] = reference_id
 
 
-def _assign_value(normalized: dict[str, Any], field_name: str, value: Any, warnings: list[str]) -> None:
+def _assign_value(
+    normalized: dict[str, Any], field_name: str, value: Any, warnings: list[str]
+) -> None:
     if field_name in {"source_f", "source_k", "sink_f", "sink_k"}:
         normalized[field_name] = value
         return
@@ -874,7 +1034,9 @@ def _assign_value(normalized: dict[str, Any], field_name: str, value: Any, warni
 def _canonical_field(field_name: str) -> str:
     normalized = _normalize_key(field_name)
     for canonical, aliases in FIELD_ALIASES.items():
-        if normalized == _normalize_key(canonical) or normalized in {_normalize_key(alias) for alias in aliases}:
+        if normalized == _normalize_key(canonical) or normalized in {
+            _normalize_key(alias) for alias in aliases
+        }:
             return canonical
     return normalized
 
@@ -954,9 +1116,10 @@ def _normalize_key(value: str) -> str:
 
 def _as_float(value: Any) -> Optional[float]:
     try:
-        return float(value)
+        numeric = float(value)
     except (TypeError, ValueError):
         return None
+    return numeric if math.isfinite(numeric) else None
 
 
 def _json_to_records(data: Any) -> list[dict]:
@@ -1033,7 +1196,7 @@ def _write_csv(records: Sequence[Mapping[str, Any]], path: Path, *, detailed: bo
 
     source_fields: list[str] = []
     for record in records:
-        for key in (record.get("source") or {}):
+        for key in record.get("source") or {}:
             if key not in source_fields:
                 source_fields.append(str(key))
 

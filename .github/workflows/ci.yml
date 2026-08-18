@@ -12,16 +12,30 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install package
         run: python -m pip install -e ".[all,dev]"
+      - name: Check generated data
+        run: python scripts/sync_reference_data.py --check
+      - name: Lint
+        run: python -m ruff check .
+      - name: Check formatting
+        run: python -m ruff format --check .
       - name: Run tests
-        run: python -m pytest -q
+        run: python -m pytest -q --cov=quantity_quality --cov-report=term-missing
       - name: Build package
         run: python -m build
+      - name: Check distributions
+        run: python -m twine check dist/*
+      - name: Smoke-test wheel
+        if: matrix.python-version == '3.14'
+        run: |
+          python -m venv /tmp/quantity-quality-wheel
+          /tmp/quantity-quality-wheel/bin/python -m pip install dist/*.whl
+          /tmp/quantity-quality-wheel/bin/quantity-quality calc thermal --quantity 1 --unit MWh_th --source-c 80 --sink-c 20

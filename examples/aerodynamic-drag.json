@@ -1,0 +1,11 @@
+{
+  "stream_type": "dissipation",
+  "loss_model": "aerodynamic_drag",
+  "fluid_density_kg_m3": 1.225,
+  "drag_coefficient": 0.3,
+  "frontal_area_m2": 2.2,
+  "relative_speed_m_s": 25,
+  "distance_m": 10000,
+  "dissipation_c": 20,
+  "sink_c": 20
+}
