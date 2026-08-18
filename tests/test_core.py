@@ -1,18 +1,23 @@
+import json
 import math
 import sqlite3
+from pathlib import Path
 
 import pytest
+from jsonschema import ValidationError
+from jsonschema import validate as validate_json
 
+import quantity_quality as qq
 from quantity_quality import (
     COMMON_NOTATION_EXAMPLES,
     EnergyReport,
-    ReferenceEnvironment,
     ReferenceContext,
+    ReferenceEnvironment,
     annotate_file,
     annotate_record,
     build_web_data,
     carrier_family,
-    conformance_issues,
+    chemical,
     chemical_exergy_factor,
     clean_dataframe,
     clean_file,
@@ -20,39 +25,46 @@ from quantity_quality import (
     clean_records,
     clean_sql,
     clean_stream,
+    clean_url,
     compare,
+    compare_scenario,
     compare_scenario_file,
+    conformance_issues,
     cooling_exergy_factor_c,
-    electricity,
     efficiency_from_loss_angle,
+    electricity,
     exergy_capital_efficiency,
     exergy_loss_angle,
     exergy_loss_angle_from_efficiency,
     exergy_unit,
     f3_thermal_summary,
-    fuel,
-    get_carrier_entry,
     format_energy_notation,
     format_exergy_factor,
+    from_notation,
+    fuel,
+    get_carrier_entry,
+    get_reference_example,
     infer_fidelity_tier,
     is_energy_unit,
     is_non_energy_unit,
-    steam_saturation_temperature_c,
     list_carrier_registry,
     list_fidelity_tiers,
-    get_reference_example,
     load_record_schema,
     load_reference_examples,
     lookup,
+    minimum_record_fields,
     parse_energy_notation,
     petela_exergy_factor,
     report,
-    source_temperature_for_fx_c,
-    thermal_interval,
     scenario_to_markdown,
     scenario_to_table,
+    sensible_heat_exergy_factor_c,
+    solar,
+    source_temperature_for_fx_c,
+    steam_saturation_temperature_c,
     thermal,
     thermal_exergy_factor_c,
+    thermal_interval,
     verify_notation,
     weighted_exergy_factor,
     write_web_data,
@@ -72,6 +84,13 @@ def test_dynamic_sink_example():
     assert standard_sink == pytest.approx(0.146, abs=0.001)
     assert warm_sink == pytest.approx(0.102, abs=0.001)
     assert warm_sink < standard_sink
+
+
+def test_integrated_sensible_heat_factor_matches_the_paper_equation():
+    expected = 1 - (293.15 * math.log(353.15 / 323.15) / (353.15 - 323.15))
+    assert sensible_heat_exergy_factor_c(80, 50, 20) == pytest.approx(expected)
+    with pytest.raises(ValueError, match="supply temperature"):
+        sensible_heat_exergy_factor_c(50, 80, 20)
 
 
 def test_energy_report_accessible_exergy():
@@ -270,6 +289,18 @@ def test_third_draft_registry_tiers_and_diagnostics():
     assert infer_fidelity_tier(interval.as_dict()) == "F3"
     assert conformance_issues(interval.as_dict()) == ()
 
+    f4_incomplete = {
+        "quantity": 1,
+        "unit": "MWh_m",
+        "fx": 1,
+        "tier": "F4",
+        "reference": "declared environment",
+        "boundary": "control volume",
+        "basis": "full state-vector balance",
+    }
+    assert "state_variables" in conformance_issues(f4_incomplete)[0]
+    assert "balance_closure" in conformance_issues(f4_incomplete)[1]
+
     summary = f3_thermal_summary(
         [
             {"quantity": 10, "source_c": 80, "sink_c": 5},
@@ -307,14 +338,17 @@ def test_web_export_uses_canonical_reference_values(tmp_path):
     js_output = tmp_path / "reference_examples.js"
     write_web_data(output, js_output=js_output)
     assert '"naturalGasHhv"' in output.read_text(encoding="utf-8")
-    assert js_output.read_text(encoding="utf-8").startswith("window.EXERGY_FACTOR_REFERENCE_DATA = ")
+    assert js_output.read_text(encoding="utf-8").startswith(
+        "window.EXERGY_FACTOR_REFERENCE_DATA = "
+    )
 
 
 def test_record_json_schema_is_packaged():
     schema = load_record_schema()
     assert schema["title"] == "Quantity + Quality Energy Record"
     assert "exergy_factor" in schema["properties"]
-    assert "unit" in schema["required"]
+    assert schema["$id"].endswith("/data/quantity_quality_record.schema.json")
+    assert "anyOf" in schema
 
 
 def test_scenario_comparison_json_and_markdown(tmp_path):
@@ -416,9 +450,12 @@ def test_clean_dataframe_accepts_pandas_like_objects():
 
 def test_clean_sql_and_stream_helpers():
     connection = sqlite3.connect(":memory:")
-    connection.execute("create table energy (asset text, energy_kwh real, fx real)")
-    connection.execute("insert into energy values ('meter 1', 100, 0.5)")
-    rows = clean_sql(connection, "select * from energy")
+    try:
+        connection.execute("create table energy (asset text, energy_kwh real, fx real)")
+        connection.execute("insert into energy values ('meter 1', 100, 0.5)")
+        rows = clean_sql(connection, "select * from energy")
+    finally:
+        connection.close()
     streamed = list(clean_stream([{"energy_kwh": 200, "fx": 0.25}]))
     assert rows[0]["notation"] == "100 kWh, fx = 0.500"
     assert streamed[0]["notation"] == "200 kWh, fx = 0.250"
@@ -479,8 +516,8 @@ def test_full_declaration_round_trips():
 @pytest.mark.parametrize(
     "text",
     [
-        "1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]",   # as the paper typesets it
-        "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]",   # ASCII wire form
+        "1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]",  # as the paper typesets it
+        "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]",  # ASCII wire form
         "1 MWh, fx = 0.170 [Th = 353.15 K, T0 = 293.15 K]",  # stated in kelvin
     ],
 )
@@ -531,8 +568,7 @@ def test_cooling_declarations_verify_against_their_own_bracket():
 def test_the_reporters_own_columns_survive(tmp_path):
     source = tmp_path / "meters.csv"
     source.write_text(
-        "Site,Meter,Month,Usage,Units,Notes\n"
-        "Plant A,Main electric,Jan-2026,845000,kWh,\n",
+        "Site,Meter,Month,Usage,Units,Notes\nPlant A,Main electric,Jan-2026,845000,kWh,\n",
         encoding="utf-8",
     )
     out = tmp_path / "out.csv"
@@ -545,11 +581,13 @@ def test_the_reporters_own_columns_survive(tmp_path):
 
 
 def test_ordinary_meter_names_are_understood():
-    records = clean_records([
-        {"Meter": "Main electric", "Usage": 845000, "Units": "kWh"},
-        {"Meter": "Natural gas boiler", "Usage": 1240, "Units": "therms"},
-        {"Meter": "Chilled water", "Usage": 910, "Units": "ton-hours"},
-    ])
+    records = clean_records(
+        [
+            {"Meter": "Main electric", "Usage": 845000, "Units": "kWh"},
+            {"Meter": "Natural gas boiler", "Usage": 1240, "Units": "therms"},
+            {"Meter": "Chilled water", "Usage": 910, "Units": "ton-hours"},
+        ]
+    )
     assert [record["fx"] for record in records] == [1.0, 0.93, 0.082]
     # And every inferred carrier says so, in the record, naming what it matched.
     for record in records:
@@ -558,9 +596,11 @@ def test_ordinary_meter_names_are_understood():
 
 def test_an_explicit_value_always_beats_an_inferred_one():
     # The guess must never overwrite what the reporter actually stated.
-    record = clean_records([
-        {"Meter": "Main electric", "Usage": 100, "Units": "kWh", "fx": 0.42},
-    ])[0]
+    record = clean_records(
+        [
+            {"Meter": "Main electric", "Usage": 100, "Units": "kWh", "fx": 0.42},
+        ]
+    )[0]
     assert record["fx"] == 0.42
     assert not any("presumptive" in assumption for assumption in record["assumptions"])
 
@@ -568,11 +608,13 @@ def test_an_explicit_value_always_beats_an_inferred_one():
 def test_utility_units_reach_a_comparable_MWh_ex():
     # The whole point is that rows can be added up. A unit that parses but yields
     # no accessible_exergy_mwh silently breaks that, which is worse than refusing.
-    records = clean_records([
-        {"Usage": 1240, "Units": "therms", "fx": 0.93},
-        {"Usage": 910, "Units": "ton-hours", "fx": 0.082},
-        {"Usage": 430, "Units": "MMBtu", "fx": 0.353},
-    ])
+    records = clean_records(
+        [
+            {"Usage": 1240, "Units": "therms", "fx": 0.93},
+            {"Usage": 910, "Units": "ton-hours", "fx": 0.082},
+            {"Usage": 430, "Units": "MMBtu", "fx": 0.353},
+        ]
+    )
     for record in records:
         assert record["accessible_exergy_mwh"] is not None, record["unit"]
     assert records[0]["accessible_exergy_mwh"] == pytest.approx(33.789, abs=0.01)
@@ -596,15 +638,24 @@ def test_a_temperature_written_in_a_notes_column_is_read():
     # The single most common way a real export carries the one fact that decides
     # the Exergy Factor. These rows used to ask the reporter for a number they had
     # already written down.
-    hot = clean_records([
-        {"Meter": "Waste heat recovered", "Usage": 430, "Units": "MMBtu", "Notes": "exhaust ~340F"},
-    ])[0]
+    hot = clean_records(
+        [
+            {
+                "Meter": "Waste heat recovered",
+                "Usage": 430,
+                "Units": "MMBtu",
+                "Notes": "exhaust ~340F",
+            },
+        ]
+    )[0]
     assert hot["fx"] == pytest.approx(0.340, abs=0.002)
     assert any("340" in a for a in hot["assumptions"])
 
-    cold = clean_records([
-        {"Meter": "Chilled water", "Usage": 910, "Units": "ton-hours", "Notes": "44F supply"},
-    ])[0]
+    cold = clean_records(
+        [
+            {"Meter": "Chilled water", "Usage": 910, "Units": "ton-hours", "Notes": "44F supply"},
+        ]
+    )[0]
     # Below ambient is a cooling service, and it needs an ambient to be held
     # against — supplying only the service temperature left it unanswerable.
     assert cold["fx"] == pytest.approx(0.048, abs=0.002)
@@ -624,9 +675,11 @@ def test_steam_pressure_becomes_a_delivery_temperature():
     # is delivered at. 165 psig is 12.4 bar absolute, saturating near 189 C.
     assert steam_saturation_temperature_c(1.01325) == pytest.approx(100.0, abs=0.5)
     assert steam_saturation_temperature_c(10.0) == pytest.approx(179.9, abs=0.5)
-    record = clean_records([
-        {"Meter": "Steam header", "Usage": 2738, "Units": "kWh", "Notes": "supply 165 psig"},
-    ])[0]
+    record = clean_records(
+        [
+            {"Meter": "Steam header", "Usage": 2738, "Units": "kWh", "Notes": "supply 165 psig"},
+        ]
+    )[0]
     assert record["fx"] == pytest.approx(0.366, abs=0.005)
     assert any("saturat" in a for a in record["assumptions"])
 
@@ -636,19 +689,19 @@ def test_a_fuel_volume_that_names_its_fuel_converts():
     # them, so the same record was usable in one place and rejected in the other.
     # The unit carries the fuel, so a published equivalent applies.
     gas = clean_records([{"Usage": 1000, "Units": "scf(natural gas)"}])[0]
-    assert gas["quantity"] == pytest.approx(0.29307, abs=1e-4)   # 1 MMBtu
+    assert gas["quantity"] == pytest.approx(0.30362, abs=1e-4)  # EIA 2026: 1.036 MMBtu
     assert gas["unit"] == "MWh"
     assert gas["fx"] == 0.93
 
     oil = clean_records([{"Usage": 1, "Units": "bbl(oil)"}])[0]
-    assert oil["quantity"] == pytest.approx(1.6994, abs=1e-3)    # 5.80 MMBtu
-    assert oil["accessible_exergy_mwh"] == pytest.approx(1.8014, abs=1e-3)
+    assert oil["quantity"] == pytest.approx(1.6673, abs=1e-3)  # EIA 2026: 5.689 MMBtu
+    assert oil["accessible_exergy_mwh"] == pytest.approx(1.7673, abs=1e-3)
 
     # The conversion is stated, including the basis, because the paper's
     # enforcement mechanism is that a chemical token is incomplete when its basis
     # is not recoverable.
     note = " ".join(gas["assumptions"])
-    assert "1,000 Btu per scf" in note
+    assert "1,036 Btu per scf" in note
     assert "HHV" in note
 
 
@@ -688,3 +741,584 @@ def test_tolerance_follows_the_precision_the_record_claims():
     loose = verify_notation("1 MWh_th, fx = 0.17 [Th = 80 C, T0 = 20 C]")
     assert loose.agrees
     assert loose.tolerance == pytest.approx(0.005)
+
+
+def test_high_level_full_notation_round_trip_preserves_context():
+    thermal_record = from_notation("1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]")
+    assert thermal_record.full_notation == ("1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]")
+    assert thermal_record.method == "thermal"
+    assert "self_verifying" in thermal_record.capabilities
+
+    cooling_record = from_notation("1 MWh_cooling, fx = 0.082 [Tcold = 7 C, T0 = 30 C]")
+    assert cooling_record.ambient_sink_c == 30
+    assert cooling_record.full_notation.endswith("[Tcold = 7 C, T0 = 30 C]")
+
+    cleaned = clean_record({"notation": "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"})
+    assert cleaned["source_c"] == 80
+    assert cleaned["sink_c"] == 20
+    assert cleaned["full_notation"].endswith("[Th = 80 C, T0 = 20 C]")
+
+
+def test_tiny_nonzero_quantity_never_formats_as_zero():
+    assert format_energy_notation(0.000293071, "MWh", 0.93).startswith("0.000293 MWh")
+
+
+@pytest.mark.parametrize(
+    ("unit", "expected_mwh"),
+    [("Mcf", 0.3036216287), ("MMcf", 303.6216287)],
+)
+def test_bare_gas_billing_volumes_convert(unit, expected_mwh):
+    record = clean_record({"Usage": 1, "Units": unit})
+    assert record["quantity"] == pytest.approx(expected_mwh)
+    assert record["unit"] == "MWh"
+    assert record["fx"] == pytest.approx(0.93)
+    assert "natural gas" in " ".join(record["assumptions"])
+
+
+def test_nonfinite_cleaner_values_become_row_issues():
+    record = clean_record({"quantity": math.nan, "unit": "MWh", "fx": 0.5})
+    assert record["needs_attention"]
+    assert any("finite" in issue["message"] for issue in record["issues"])
+
+
+def test_malformed_notation_becomes_a_row_issue():
+    record = clean_record({"notation": "not an energy record"})
+    assert record["needs_attention"]
+    assert any(issue["field"] == "notation" for issue in record["issues"])
+
+
+def test_url_cleaning_rejects_unsafe_or_unbounded_options():
+    with pytest.raises(ValueError, match="http"):
+        clean_url("file:///tmp/records.csv")
+    with pytest.raises(ValueError, match="credentials"):
+        clean_url("https://user:secret@example.com/records.csv")
+    with pytest.raises(ValueError, match="timeout"):
+        clean_url("https://example.com/records.csv", timeout=0)
+
+
+def test_blank_excel_cell_does_not_abort_the_file(tmp_path):
+    pd = pytest.importorskip("pandas")
+    pytest.importorskip("openpyxl")
+    path = tmp_path / "records.xlsx"
+    pd.DataFrame(
+        [
+            {"quantity": 1.0, "unit": "MWh", "fx": 0.5},
+            {"quantity": None, "unit": "MWh", "fx": 0.5},
+        ]
+    ).to_excel(path, index=False)
+    result = clean_file(path)
+    assert result["total_records"] == 2
+    assert result["invalid_records"] == 1
+
+
+def test_pressure_is_only_interpreted_as_saturated_steam_with_steam_context():
+    compressed_air = clean_record(
+        {
+            "Meter": "Compressed air header",
+            "Usage": 100,
+            "Units": "kWh",
+            "Notes": "165 psig",
+        }
+    )
+    assert compressed_air.get("source_c") in (None, "")
+    assert compressed_air.get("fx") in (None, "")
+
+
+def test_schema_accepts_each_supported_minimal_input_shape():
+    schema = load_record_schema()
+    validate_json(
+        {"notation": "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"},
+        schema,
+    )
+    validate_json({"quantity": 1, "unit": "MWh", "fx": 0.5}, schema)
+    validate_json({"quantity": 1, "unit": "MWh", "tier": "F0"}, schema)
+    validate_json(
+        {
+            "quantity": 1,
+            "unit": "MWh_HHV_CH4",
+            "chemical_exergy": 55.5,
+            "energy_basis": "HHV",
+            "energy_basis_value": 50.0,
+        },
+        schema,
+    )
+    assert minimum_record_fields() == ("quantity", "unit", "exergy_factor")
+
+
+def test_power_input_retains_rate_semantics():
+    record = annotate_record({"power": 10, "unit": "MW", "fx": 0.7}).record
+    assert "quantity" not in record
+    assert record["power"] == 10
+    assert record["accessible_exergy_rate"] == pytest.approx(7)
+    assert record["accessible_exergy_rate_unit"] == "MW_ex"
+
+
+def test_scenario_grade_difference_only_applies_to_matched_energy():
+    result = compare_scenario(
+        {
+            "demand": {"quantity": 2, "unit": "MWh", "fx": 0.2},
+            "options": [{"label": "Supply | A", "quantity": 10, "unit": "MWh", "fx": 0.8}],
+        }
+    )
+    row = result["rows"][0]
+    assert row["matched_energy_mwh"] == 2
+    assert row["grade_mismatch_mwh_ex"] == pytest.approx(1.2)
+    assert "Supply \\| A" in scenario_to_markdown(result)
+
+
+def test_capabilities_only_claim_verification_the_library_can_perform():
+    solar_record = solar()
+    assert "self_verifying" in solar_record.capabilities
+    assert verify_notation(solar_record.full_notation).agrees
+    assert (
+        "self_verifying" not in chemical(1, "MWh", chemical_exergy=55, energy_basis=50).capabilities
+    )
+    assert lookup("methane-hhv").energy_basis == "HHV"
+    assert thermal(1, source_c=80, sink_c=20).as_dict()["method_id"] == (
+        "thermal.carnot.constant_temperature.v1"
+    )
+    assert thermal(1, source_c=80, sink_c=20).as_dict()["carrier_registry_version"] == "0.3"
+    assert qq.__version__ == "0.12.0"
+
+
+def test_stream_calculator_meets_users_at_quantity_or_physical_inputs():
+    electricity_record = qq.calculate_stream(
+        {
+            "stream_type": "electricity",
+            "power": 100,
+            "power_unit": "kW",
+            "duration_hours": 8,
+        }
+    )
+    assert electricity_record.quantity == pytest.approx(800)
+    assert electricity_record.unit == "kWh_e"
+    assert electricity_record.fx == 1
+    assert electricity_record.quantity_method_id == "quantity.power_times_duration.v1"
+
+    supplied_heat = qq.calculate_stream(
+        {
+            "stream_type": "heat",
+            "quantity": 1,
+            "unit": "MWh",
+            "source_c": 80,
+            "sink_c": 20,
+        }
+    )
+    assert supplied_heat.unit == "MWh_th"
+    assert supplied_heat.fx == pytest.approx(0.170, abs=0.001)
+    assert supplied_heat.as_dict()["stream_type"] == "heat"
+    assert "stream_calculation" in supplied_heat.capabilities
+
+
+def test_sensible_heat_stream_calculates_quantity_quality_and_reproducible_notation():
+    record = qq.calculate_stream(
+        {
+            "stream_type": "heat",
+            "mass": 1000,
+            "mass_unit": "kg",
+            "specific_heat_kj_kg_k": 4.186,
+            "source_c": 80,
+            "return_c": 50,
+            "sink_c": 20,
+        }
+    )
+    assert record.quantity == pytest.approx(0.03488333333333333)
+    assert record.unit == "MWh_th"
+    assert record.fx == pytest.approx(sensible_heat_exergy_factor_c(80, 50, 20))
+    assert record.method_identifier == "thermal.sensible.integrated.v1"
+    assert record.quantity_method_id == "quantity.sensible_heat.mass_cp_delta_t.v1"
+    assert "[Ts = 80 C, Tr = 50 C, T0 = 20 C]" in record.full_notation
+    assert verify_notation(record.full_notation).agrees
+    parsed = from_notation(record.full_notation)
+    assert parsed.return_c == 50
+    assert parsed.method_identifier == "thermal.sensible.integrated.v1"
+
+
+def test_solar_and_fuel_physical_quantity_helpers():
+    solar_record = qq.calculate_stream(
+        {
+            "stream_type": "solar",
+            "irradiance_w_m2": 800,
+            "area_m2": 50,
+            "duration_hours": 6,
+        }
+    )
+    assert solar_record.quantity == pytest.approx(240)
+    assert solar_record.unit == "kWh_solar"
+    assert solar_record.accessible_exergy == pytest.approx(240 * petela_exergy_factor())
+
+    fuel_record = qq.calculate_stream(
+        {
+            "stream_type": "fuel",
+            "mass": 100,
+            "mass_unit": "kg",
+            "heating_value": 50,
+            "heating_value_unit": "MJ/kg",
+            "fuel": "natural gas",
+            "basis": "LHV",
+        }
+    )
+    assert fuel_record.quantity == pytest.approx(5000 / 3600)
+    assert fuel_record.unit == "MWh_LHV_NG"
+    assert fuel_record.fx == pytest.approx(1.04)
+
+    assert qq.energy_from_power(10, 2, power_unit="kW", output_unit="kWh") == 20
+    assert qq.solar_energy(1000, 2, 3) == 6
+    assert qq.energy_from_mass(1, 50, heating_value_unit="MJ/kg") == pytest.approx(50 / 3600)
+
+    volume_fuel = qq.calculate_stream(
+        {
+            "stream_type": "fuel",
+            "volume": 1000,
+            "volume_unit": "m3",
+            "heating_value": 35.8,
+            "heating_value_unit": "MJ/m3",
+            "fuel": "natural gas",
+            "basis": "HHV",
+            "chemical_exergy": 51.6,
+            "energy_basis_value": 55.5,
+        }
+    )
+    assert volume_fuel.quantity == pytest.approx(35_800 / 3600)
+    assert volume_fuel.fx == pytest.approx(51.6 / 55.5)
+    assert volume_fuel.method_identifier == "chemical.ratio.declared_basis.v1"
+    assert volume_fuel.quantity_method_id == "quantity.fuel.volume_heating_value.v1"
+    assert qq.energy_from_volume(1, 10, heating_value_unit="kWh/m3") == pytest.approx(0.01)
+
+
+def test_stream_calculation_errors_and_capabilities_are_machine_readable(capsys):
+    with pytest.raises(qq.StreamCalculationError) as exc_info:
+        qq.calculate_stream({"stream_type": "heat", "quantity": 1, "unit": "MWh"})
+    assert exc_info.value.as_dict() == {
+        "code": "missing_input",
+        "message": "source_c is required",
+        "field": "source_c",
+    }
+    capabilities = qq.stream_capabilities()
+    assert capabilities["schema_version"] == "1.2"
+    assert set(capabilities["stream_types"]) == {
+        "electricity",
+        "mechanical",
+        "electromagnetic_field",
+        "heat",
+        "cooling",
+        "fluid",
+        "humid_air",
+        "fuel",
+        "solar",
+        "radiation",
+        "separation",
+        "nuclear",
+        "plasma",
+        "dissipation",
+        "custom",
+    }
+    request_schema = qq.load_stream_request_schema()
+    for definition in capabilities["stream_types"].values():
+        validate_json(definition["example"], request_schema)
+    with pytest.raises(ValidationError):
+        validate_json({"stream_type": "heat", "quantity": 1, "unit": "MWh"}, request_schema)
+    with pytest.raises(ValidationError):
+        validate_json(
+            {"stream_type": "electricity", "quantity": 1, "unit": "MWh", "typo": 4},
+            request_schema,
+        )
+
+    from quantity_quality.cli import main
+
+    assert main(["capabilities", "--json"]) == 0
+    assert main(["capabilities", "--json-schema"]) == 0
+    assert (
+        main(
+            [
+                "calculate",
+                '{"stream_type":"electricity","power":5,"power_unit":"kW","duration_hours":2}',
+                "--json",
+            ]
+        )
+        == 0
+    )
+    output = capsys.readouterr().out
+    assert '"quantity_method_id": "quantity.power_times_duration.v1"' in output
+
+
+def test_cleaner_distinguishes_return_temperature_from_reference_environment():
+    record = clean_record(
+        {
+            "quantity": 1,
+            "unit": "MWh_th",
+            "supply_temp_c": 80,
+            "return_temp_c": 50,
+            "reference_temp_c": 20,
+        }
+    )
+    assert record["return_c"] == 50
+    assert record["sink_c"] == 20
+    assert record["method_id"] == "thermal.sensible.integrated.v1"
+    assert "Tr = 50 C" in record["full_notation"]
+
+    subzero = clean_record(
+        {
+            "quantity": 1,
+            "unit": "MWh_cooling",
+            "cold_service_c": -10,
+            "ambient_sink_c": 20,
+        }
+    )
+    assert subzero["exergy_factor"] > 0
+
+
+def test_distinguishability_is_exposed_without_a_second_multiplier():
+    hot = thermal(1, source_c=80, sink_c=20)
+    assessment = hot.distinguishability
+    assert assessment["status"] == "distinguishable"
+    assert assessment["basis"] == "temperature_gradient"
+    assert assessment["difference"]["temperature_k"] == 60
+    assert assessment["exergy_factor"] == hot.fx
+    assert "no separate distinguishability multiplier" in assessment["factor_role"]
+    assert "distinguishability_assessment" in hot.capabilities
+
+    equilibrium = thermal(1, source_c=20, sink_c=20)
+    assert equilibrium.fx == 0
+    assert equilibrium.distinguishability["status"] == "indistinguishable"
+    assert cooling_exergy_factor_c(20, 20) == 0
+
+
+def test_end_use_accounting_keeps_energy_exergy_and_service_separate():
+    account = qq.account_energy_chain(
+        {
+            "primary": {"quantity": 2.5, "unit": "MWh_LHV_NG", "fx": 1.04},
+            "final": {
+                "quantity": 1,
+                "unit": "MWh_e",
+                "fx": 1,
+                "method": "electricity",
+            },
+            "useful": {
+                "quantity": 0.9,
+                "unit": "MWh_mech",
+                "fx": 1,
+                "method": "mechanical",
+                "boundary": "motor shaft to task",
+            },
+            "service": {
+                "name": "Conveyor movement",
+                "quantity": 12000,
+                "unit": "tonne_metre",
+            },
+        }
+    )
+    result = account.as_dict()
+    assert result["complete"] is True
+    assert result["applied_exergy"] == pytest.approx(0.9)
+    assert result["applied_exergy_unit"] == "MWh_ex"
+    assert result["stages"]["primary"]["exergy_mwh"] == pytest.approx(2.6)
+    assert "anergy_mwh" not in result["stages"]["primary"]
+    assert result["stages"]["useful"]["anergy_mwh"] == 0
+    assert result["efficiencies"]["final_to_applied_exergy"] == pytest.approx(0.9)
+    assert result["service"]["energy_unit"] is False
+    assert result["service"]["applied_exergy_intensity_unit"] == "MWh_ex/tonne_metre"
+
+
+def test_secondary_energy_is_an_optional_physical_boundary():
+    result = qq.account_energy_chain(
+        {
+            "primary": {"quantity": 3, "unit": "MWh_fuel", "fx": 1},
+            "secondary": {"quantity": 1.1, "unit": "MWh_e", "fx": 1},
+            "final": {"quantity": 1, "unit": "MWh_e", "fx": 1},
+            "useful": {"quantity": 0.9, "unit": "MWh_mech", "fx": 1},
+        }
+    ).as_dict()
+    assert list(result["stages"]) == ["primary", "secondary", "final", "useful"]
+    assert result["efficiencies"]["primary_to_secondary_energy"] == pytest.approx(1.1 / 3)
+    assert result["efficiencies"]["secondary_to_final_exergy"] == pytest.approx(1 / 1.1)
+    assert result["complete"] is True
+
+
+def test_substitution_energy_is_retained_but_never_treated_as_physical_exergy():
+    result = qq.account_energy_chain(
+        {
+            "primary": {
+                "quantity": 250,
+                "unit": "TWh",
+                "accounting_method": "substitution",
+                "source_dataset": "OWID historical energy data",
+                "source_variable": "solar_consumption",
+            },
+            "secondary": {"quantity": 100, "unit": "TWh_e", "fx": 1},
+        }
+    ).as_dict()
+    primary = result["stages"]["primary"]
+    assert primary["energy_mwh"] == 250_000_000
+    assert primary["energy_quantity_type"] == "counterfactual_energy_equivalent"
+    assert primary["thermodynamic_conversion_allowed"] is False
+    assert primary["quality_status"] == "not_applicable_to_counterfactual_equivalent"
+    assert primary["missing_quality"] == ["physical_energy_basis"]
+    assert "fx" not in primary
+    assert "exergy_mwh" not in primary
+    assert "primary_to_secondary_exergy" not in result["efficiencies"]
+    assert "primary.physical_energy_basis" in result["missing"]
+    assert any("counterfactual" in warning for warning in result["warnings"])
+
+    with pytest.raises(qq.EnergyAccountingError, match="counterfactual"):
+        qq.account_energy_chain(
+            {
+                "primary": {
+                    "quantity": 250,
+                    "unit": "TWh",
+                    "fx": 1,
+                    "accounting_method": "substitution",
+                }
+            }
+        )
+
+    with pytest.raises(qq.EnergyAccountingError, match="primary-energy"):
+        qq.account_energy_chain(
+            {
+                "secondary": {
+                    "quantity": 250,
+                    "unit": "TWh",
+                    "accounting_method": "substitution",
+                }
+            }
+        )
+
+
+def test_energy_only_dataset_stage_does_not_invent_quality():
+    result = qq.account_energy_chain(
+        {
+            "primary": {
+                "quantity": 100,
+                "unit": "TWh",
+                "accounting_method": "physical_energy_content",
+                "source_dataset": "OWID Energy dataset",
+            }
+        }
+    ).as_dict()
+    assert result["stages"]["primary"]["quality_status"] == "not_supplied"
+    assert "exergy_mwh" not in result["stages"]["primary"]
+    assert any("no Exergy Factor" in warning for warning in result["warnings"])
+
+    with pytest.raises(qq.EnergyAccountingError, match="final.fx"):
+        qq.account_energy_chain(
+            {
+                "final": {"quantity": 1, "unit": "MWh_e"},
+                "end_use_exergy_efficiency": 0.9,
+            }
+        )
+
+
+def test_applied_exergy_can_be_derived_when_useful_energy_exceeds_final_energy():
+    # A heat pump can deliver more useful heat than its final electricity input;
+    # the second-law constraint applies to exergy, not to that energy ratio.
+    result = qq.account_energy_chain(
+        {
+            "final": {"quantity": 1, "unit": "MWh_e", "fx": 1},
+            "useful": {
+                "quantity": 3,
+                "unit": "MWh_th",
+                "fx": 0.064,
+                "source_c": 40,
+                "sink_c": 20,
+            },
+            "service": {
+                "name": "Warm home",
+                "quantity": 720,
+                "unit": "occupied_comfort_hour",
+            },
+        }
+    ).as_dict()
+    assert result["efficiencies"]["final_to_useful_energy"] == 3
+    assert result["applied_exergy"] == pytest.approx(0.192)
+    assert result["efficiencies"]["final_to_applied_exergy"] == pytest.approx(0.192)
+    assert result["stages"]["useful"]["anergy_mwh"] == pytest.approx(2.808)
+
+
+def test_applied_exergy_can_be_measured_directly_or_confirm_a_derived_value():
+    direct = qq.account_energy_chain(
+        {
+            "applied_exergy": {
+                "quantity": 500,
+                "unit": "kWh_ex",
+                "basis": "shaft power integrated over the reporting interval",
+                "boundary": "motor shaft to pump",
+            },
+            "service": {
+                "name": "Water delivered",
+                "quantity": 1000,
+                "unit": "cubic_metre_delivered",
+            },
+        }
+    ).as_dict()
+    assert direct["complete"] is False
+    assert direct["applied_exergy"] == pytest.approx(0.5)
+    assert direct["applied_exergy_basis"].startswith("shaft power")
+    assert direct["service"]["service_productivity"] == pytest.approx(2000)
+
+    confirmed = qq.account_energy_chain(
+        {
+            "useful": {"quantity": 0.5, "unit": "MWh_mech", "fx": 1},
+            "applied_exergy": {"quantity": 500, "unit": "kWh_ex"},
+        }
+    ).as_dict()
+    assert "confirmed by directly declared" in confirmed["applied_exergy_basis"]
+
+
+def test_end_use_accounting_rejects_energy_services_and_broken_exergy_balances():
+    with pytest.raises(qq.EnergyAccountingError, match="outcome"):
+        qq.account_energy_chain(
+            {
+                "useful": {"quantity": 1, "unit": "MWh_th", "fx": 0.1},
+                "service": {"name": "Warm home", "quantity": 1, "unit": "MWh"},
+            }
+        )
+    with pytest.raises(qq.EnergyAccountingError, match="cannot exceed final exergy"):
+        qq.account_energy_chain(
+            {
+                "final": {"quantity": 1, "unit": "MWh_e", "fx": 1},
+                "applied_exergy": {"quantity": 1.1, "unit": "MWh_ex"},
+            }
+        )
+
+
+def test_accounting_schema_capabilities_and_cli(capsys):
+    schema = qq.load_energy_accounting_request_schema()
+    example = qq.accounting_capabilities()["example"]
+    validate_json(example, schema)
+    validate_json(
+        json.loads(Path("examples/end-use-accounting.json").read_text(encoding="utf-8")),
+        schema,
+    )
+    validate_json(
+        json.loads(Path("examples/owid-substitution-accounting.json").read_text(encoding="utf-8")),
+        schema,
+    )
+    with pytest.raises(ValidationError):
+        validate_json(
+            {
+                "primary": {
+                    "quantity": 250,
+                    "unit": "TWh",
+                    "fx": 1,
+                    "accounting_method": "substitution",
+                }
+            },
+            schema,
+        )
+
+    from quantity_quality.cli import main
+
+    assert main(["account", "examples/end-use-accounting.json", "--json"]) == 0
+    assert main(["account", "--json-schema"]) == 0
+    output = capsys.readouterr().out
+    assert '"applied_exergy": 0.9' in output
+    assert "Primary-Secondary-Final-Useful-Applied Exergy Accounting Request" in output
+
+
+def test_accounting_cli_prints_energy_only_stages(capsys):
+    from quantity_quality.cli import main
+
+    assert main(["account", "examples/owid-substitution-accounting.json"]) == 0
+    output = capsys.readouterr().out
+    assert "primary: 250 TWh, fx = not supplied (substitution)" in output
+    assert "secondary: 100 TWh_e, fx = 1.000" in output

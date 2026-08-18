@@ -1,0 +1,14 @@
+{
+  "stream_type": "biomass",
+  "mass": 1000,
+  "mass_unit": "kg",
+  "heating_value": 18,
+  "heating_value_unit": "MJ/kg",
+  "basis": "LHV",
+  "chemical_exergy": 19,
+  "energy_basis_value": 18,
+  "quality_basis_unit": "MJ/kg as received",
+  "feedstock_class": "declared biomass feedstock",
+  "property_source": "caller-supplied matching-basis analysis",
+  "boundary": "as-received biomass inventory"
+}

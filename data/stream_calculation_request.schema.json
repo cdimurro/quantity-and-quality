@@ -1,0 +1,681 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/cdimurro/quantity-and-quality/main/data/stream_calculation_request.schema.json",
+  "title": "Quantity + Quality Stream Calculation Request",
+  "description": "Inputs for calculating energy quantity, Exergy Factor, and accessible exergy for one stream.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["stream_type"],
+  "properties": {
+    "stream_type": {
+      "type": "string",
+      "enum": [
+        "electricity",
+        "mechanical",
+        "electromagnetic_field",
+        "electromagnetic",
+        "em_field",
+        "heat",
+        "cooling",
+        "fluid",
+        "humid_air",
+        "fuel",
+        "biomass",
+        "bioenergy",
+        "solar",
+        "radiation",
+        "separation",
+        "nuclear",
+        "fission",
+        "fusion",
+        "thermonuclear",
+        "plasma",
+        "dissipation",
+        "custom"
+      ]
+    },
+    "quantity": {"type": "number", "minimum": 0},
+    "unit": {"type": "string", "minLength": 1},
+    "power": {"type": "number", "minimum": 0},
+    "power_unit": {"type": "string", "minLength": 1},
+    "duration_hours": {"type": "number", "minimum": 0},
+    "output_unit": {"type": "string", "minLength": 1},
+    "source_c": {"type": "number"},
+    "return_c": {"type": "number"},
+    "sink_c": {"type": "number", "default": 20},
+    "cold_service_c": {"type": "number"},
+    "ambient_sink_c": {"type": "number"},
+    "mass": {"type": "number", "minimum": 0},
+    "mass_unit": {"type": "string", "default": "kg"},
+    "mass_flow_kg_s": {"type": "number", "minimum": 0},
+    "volume": {"type": "number", "minimum": 0},
+    "volume_unit": {"type": "string", "default": "m3"},
+    "specific_heat_kj_kg_k": {"type": "number", "exclusiveMinimum": 0},
+    "heating_value": {"type": "number", "exclusiveMinimum": 0},
+    "heating_value_unit": {"type": "string"},
+    "chemical_exergy": {"type": "number", "exclusiveMinimum": 0},
+    "energy_basis_value": {"type": "number", "exclusiveMinimum": 0},
+    "irradiance_w_m2": {"type": "number", "minimum": 0},
+    "area_m2": {"type": "number", "minimum": 0},
+    "reference_c": {"type": "number", "default": 20},
+    "fuel": {"type": "string", "default": "natural gas"},
+    "basis": {"type": "string", "enum": ["HHV", "LHV"], "default": "HHV"},
+    "fx": {"type": "number", "minimum": 0},
+    "exergy_factor": {"type": "number", "minimum": 0},
+    "reference": {"type": "string"},
+    "boundary": {"type": "string"},
+    "operating_basis": {"type": "string"},
+    "label": {"type": "string"},
+    "voltage_v": {"type": "number", "minimum": 0},
+    "current_a": {"type": "number", "minimum": 0},
+    "electrical_phase": {
+      "type": "string",
+      "enum": ["dc", "single_phase", "single_phase_ac", "ac", "three_phase", "three_phase_ac", "3_phase", "3ph"]
+    },
+    "power_factor": {"type": "number", "minimum": 0, "maximum": 1},
+    "capacitance_f": {"type": "number", "minimum": 0},
+    "reference_voltage_v": {"type": "number", "minimum": 0},
+    "inductance_h": {"type": "number", "minimum": 0},
+    "reference_current_a": {"type": "number", "minimum": 0},
+    "charge_ah": {"type": "number", "minimum": 0},
+    "average_voltage_v": {"type": "number", "minimum": 0},
+    "field_model": {
+      "type": "string",
+      "enum": ["stored_field", "field_map", "poynting_flux", "plane_wave", "supplied_field_energy"]
+    },
+    "volume_m3": {"type": "number", "minimum": 0},
+    "electric_field_v_m": {"type": "number", "minimum": 0},
+    "magnetic_flux_density_t": {"type": "number", "minimum": 0},
+    "reference_electric_field_v_m": {"type": "number", "minimum": 0},
+    "reference_magnetic_flux_density_t": {"type": "number", "minimum": 0},
+    "relative_permittivity": {"type": "number", "exclusiveMinimum": 0},
+    "relative_permeability": {"type": "number", "exclusiveMinimum": 0},
+    "field_cells": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["volume_m3"],
+        "anyOf": [
+          {"required": ["electric_field_v_m"]},
+          {"required": ["magnetic_flux_density_t"]}
+        ],
+        "properties": {
+          "volume_m3": {"type": "number", "minimum": 0},
+          "electric_field_v_m": {"type": "number", "minimum": 0},
+          "magnetic_flux_density_t": {"type": "number", "minimum": 0},
+          "reference_electric_field_v_m": {"type": "number", "minimum": 0},
+          "reference_magnetic_flux_density_t": {"type": "number", "minimum": 0},
+          "relative_permittivity": {"type": "number", "exclusiveMinimum": 0},
+          "relative_permeability": {"type": "number", "exclusiveMinimum": 0}
+        }
+      }
+    },
+    "power_flux_density_w_m2": {"type": "number", "minimum": 0},
+    "normal_or_capture_factor": {"type": "number", "minimum": 0, "maximum": 1},
+    "electric_field_rms_v_m": {"type": "number", "minimum": 0},
+    "wave_impedance_ohm": {"type": "number", "exclusiveMinimum": 0},
+    "mechanical_mode": {
+      "type": "string",
+      "enum": ["shaft", "rotational", "kinetic", "gravitational", "elastic", "hydraulic"]
+    },
+    "torque_nm": {"type": "number", "minimum": 0},
+    "rotational_speed_rpm": {"type": "number", "minimum": 0},
+    "reference_speed_rpm": {"type": "number", "minimum": 0},
+    "moment_of_inertia_kg_m2": {"type": "number", "minimum": 0},
+    "velocity_m_s": {"type": "number", "minimum": 0},
+    "reference_velocity_m_s": {"type": "number", "minimum": 0},
+    "height_difference_m": {"type": "number"},
+    "gravity_m_s2": {"type": "number", "exclusiveMinimum": 0},
+    "spring_constant_n_m": {"type": "number", "minimum": 0},
+    "displacement_m": {"type": "number", "minimum": 0},
+    "reference_displacement_m": {"type": "number", "minimum": 0},
+    "pressure_difference": {"type": "number", "minimum": 0},
+    "pressure_unit": {"type": "string", "enum": ["Pa", "kPa", "MPa", "bar", "mbar", "atm", "psi"]},
+    "volume_flow_m3_s": {"type": "number", "minimum": 0},
+    "latent_heat_kj_kg": {"type": "number", "exclusiveMinimum": 0},
+    "phase_change_c": {"type": "number"},
+    "fluid": {"type": "string", "minLength": 1},
+    "temperature_c": {"type": "number"},
+    "temperature_k": {"type": "number", "exclusiveMinimum": 0},
+    "pressure_pa": {"type": "number", "exclusiveMinimum": 0},
+    "pressure": {"type": "number", "exclusiveMinimum": 0},
+    "reference_temperature_c": {"type": "number", "default": 20},
+    "reference_temperature_k": {"type": "number", "exclusiveMinimum": 0},
+    "reference_pressure_pa": {"type": "number", "exclusiveMinimum": 0, "default": 101325},
+    "vapor_quality": {"type": "number", "minimum": 0, "maximum": 1},
+    "inlet_temperature_c": {"type": "number"},
+    "inlet_pressure_pa": {"type": "number", "exclusiveMinimum": 0},
+    "inlet_vapor_quality": {"type": "number", "minimum": 0, "maximum": 1},
+    "outlet_temperature_c": {"type": "number"},
+    "outlet_pressure_pa": {"type": "number", "exclusiveMinimum": 0},
+    "outlet_vapor_quality": {"type": "number", "minimum": 0, "maximum": 1},
+    "reported_energy_basis": {"type": "string", "enum": ["auto", "enthalpy_change", "physical_exergy"]},
+    "enthalpy_kj_kg": {"type": "number"},
+    "entropy_kj_kg_k": {"type": "number"},
+    "reference_enthalpy_kj_kg": {"type": "number"},
+    "reference_entropy_kj_kg_k": {"type": "number"},
+    "cp_j_kg_k": {"type": "number", "exclusiveMinimum": 0},
+    "gas_constant_j_kg_k": {"type": "number", "exclusiveMinimum": 0},
+    "property_model": {"type": "string", "enum": ["coolprop", "ideal_gas", "supplied_properties", "refprop"]},
+    "dry_air_mass_kg": {"type": "number", "minimum": 0},
+    "humidity_ratio": {"type": "number", "minimum": 0},
+    "reference_humidity_ratio": {"type": "number", "exclusiveMinimum": 0},
+    "relative_humidity": {"type": "number", "minimum": 0, "maximum": 1},
+    "reference_relative_humidity": {"type": "number", "minimum": 0, "maximum": 1},
+    "dry_air_cp_j_kg_k": {"type": "number", "exclusiveMinimum": 0},
+    "water_vapor_cp_j_kg_k": {"type": "number", "exclusiveMinimum": 0},
+    "dry_air_gas_constant_j_kg_k": {"type": "number", "exclusiveMinimum": 0},
+    "source_temperature_c": {"type": "number"},
+    "source_temperature_k": {"type": "number", "exclusiveMinimum": 0},
+    "radiation_model": {"type": "string", "enum": ["blackbody", "spectral_entropy", "measured_entropy", "coherent", "work_equivalent"]},
+    "radiation_entropy_j_k": {"type": "number", "minimum": 0},
+    "components": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["mass_fraction", "heating_value_mj_kg", "chemical_exergy_mj_kg"],
+        "properties": {
+          "name": {"type": "string"},
+          "mass_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+          "heating_value_mj_kg": {"type": "number", "minimum": 0},
+          "chemical_exergy_mj_kg": {"type": "number", "minimum": 0}
+        }
+      }
+    },
+    "moisture_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+    "ash_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+    "heating_value_basis": {"type": "string", "enum": ["as_received", "received", "wet", "dry", "dry_basis"]},
+    "feedstock_class": {"type": "string", "minLength": 1},
+    "quality_basis_unit": {"type": "string", "minLength": 1},
+    "property_source": {"type": "string", "minLength": 1},
+    "composition_source": {"type": "string", "minLength": 1},
+    "amount_mol": {"type": "number", "minimum": 0},
+    "mole_fractions": {"type": "array", "minItems": 2, "items": {"type": "number", "minimum": 0, "maximum": 1}},
+    "mass_defect_kg": {"type": "number", "minimum": 0},
+    "isotope_mass_kg": {"type": "number", "minimum": 0},
+    "atomic_mass_g_mol": {"type": "number", "exclusiveMinimum": 0},
+    "energy_per_fission_mev": {"type": "number", "exclusiveMinimum": 0},
+    "fissioned_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+    "accessible_fraction": {"type": "number", "minimum": 0, "maximum": 1},
+    "nuclear_mode": {"type": "string", "enum": ["inventory", "reaction"]},
+    "reaction_preset": {"type": "string", "enum": ["dt_fusion"]},
+    "q_value_mev": {"type": "number", "exclusiveMinimum": 0},
+    "reaction_count": {"type": "number", "minimum": 0},
+    "reaction_amount_mol": {"type": "number", "minimum": 0},
+    "reactant_atomic_masses_u": {
+      "type": "array", "minItems": 1, "items": {"type": "number", "exclusiveMinimum": 0}
+    },
+    "product_atomic_masses_u": {
+      "type": "array", "minItems": 1, "items": {"type": "number", "exclusiveMinimum": 0}
+    },
+    "reactant_1_number_density_m3": {"type": "number", "minimum": 0},
+    "reactant_2_number_density_m3": {"type": "number", "minimum": 0},
+    "reactivity_m3_s": {"type": "number", "minimum": 0},
+    "duration_seconds": {"type": "number", "minimum": 0},
+    "identical_reactants": {"type": "boolean", "default": false},
+    "reaction_channels": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "carrier", "fraction", "exergy_factor"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "carrier": {
+            "type": "string",
+            "enum": ["neutron", "charged_particle", "alpha", "photon", "gamma", "xray", "x_ray", "neutrino", "nuclear", "other"]
+          },
+          "fraction": {"type": "number", "minimum": 0, "maximum": 1},
+          "exergy_factor": {"type": "number", "minimum": 0, "maximum": 1}
+        }
+      }
+    },
+    "nuclear_channel": {"type": "string", "minLength": 1, "default": "total"},
+    "reactivity_source": {"type": "string", "minLength": 1},
+    "mass_convention": {"type": "string", "minLength": 1},
+    "plasma_model": {"type": "string", "enum": ["ideal_species", "ideal_maxwellian"]},
+    "plasma_species": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name"],
+        "properties": {
+          "name": {"type": "string", "minLength": 1},
+          "particle_count": {"type": "number", "minimum": 0},
+          "number_density_m3": {"type": "number", "minimum": 0},
+          "temperature_k": {"type": "number", "exclusiveMinimum": 0},
+          "temperature_ev": {"type": "number", "exclusiveMinimum": 0},
+          "degrees_of_freedom": {"type": "number", "exclusiveMinimum": 0},
+          "mean_kinetic_energy_ev_per_particle": {"type": "number", "minimum": 0},
+          "kinetic_exergy_factor": {"type": "number", "minimum": 0},
+          "particle_mass_kg": {"type": "number", "exclusiveMinimum": 0},
+          "bulk_velocity_m_s": {"type": "number", "minimum": 0},
+          "reference_bulk_velocity_m_s": {"type": "number", "minimum": 0},
+          "internal_energy_ev_per_particle": {"type": "number", "minimum": 0},
+          "internal_exergy_factor": {"type": "number", "minimum": 0},
+          "charge_state": {"type": "number"}
+        },
+        "oneOf": [
+          {"required": ["particle_count"]},
+          {"required": ["number_density_m3"]}
+        ],
+        "allOf": [
+          {
+            "oneOf": [
+              {"required": ["temperature_k"]},
+              {"required": ["temperature_ev"]},
+              {"required": ["mean_kinetic_energy_ev_per_particle", "kinetic_exergy_factor"]}
+            ]
+          }
+        ]
+      }
+    },
+    "loss_model": {"type": "string", "enum": ["friction_force", "rolling_resistance", "aerodynamic_drag"]},
+    "friction_force_n": {"type": "number", "minimum": 0},
+    "distance_m": {"type": "number", "minimum": 0},
+    "coefficient_of_rolling_resistance": {"type": "number", "minimum": 0},
+    "normal_force_n": {"type": "number", "minimum": 0},
+    "fluid_density_kg_m3": {"type": "number", "minimum": 0},
+    "drag_coefficient": {"type": "number", "minimum": 0},
+    "frontal_area_m2": {"type": "number", "minimum": 0},
+    "relative_speed_m_s": {"type": "number", "minimum": 0},
+    "dissipation_c": {"type": "number"}
+  },
+  "$defs": {
+    "suppliedQuantity": {"required": ["quantity", "unit"]},
+    "powerDuration": {"required": ["power", "power_unit", "duration_hours"]},
+    "sensibleMass": {
+      "required": ["mass", "specific_heat_kj_kg_k", "source_c", "return_c"]
+    },
+    "sensibleFlow": {
+      "required": ["mass_flow_kg_s", "duration_hours", "specific_heat_kj_kg_k", "source_c", "return_c"]
+    },
+    "fuelMass": {"required": ["mass", "heating_value"]},
+    "fuelVolume": {"required": ["volume", "heating_value"]},
+    "solarResource": {"required": ["irradiance_w_m2", "area_m2", "duration_hours"]}
+    ,
+    "electricalCurrent": {"required": ["voltage_v", "current_a", "duration_hours"]},
+    "electricalCapacitor": {"required": ["capacitance_f", "voltage_v"]},
+    "electricalInductor": {"required": ["inductance_h", "current_a"]},
+    "electricalBattery": {"required": ["charge_ah", "average_voltage_v"]},
+    "phaseChange": {"required": ["mass", "latent_heat_kj_kg", "phase_change_c"]},
+    "mixtureFuel": {"required": ["mass", "components"]},
+    "radiationResource": {"required": ["irradiance_w_m2", "area_m2", "duration_hours"]},
+    "fluidTP": {"required": ["mass", "temperature_c", "pressure_pa"]},
+    "fluidPQ": {"required": ["mass", "pressure_pa", "vapor_quality"]},
+    "fluidTQ": {"required": ["mass", "temperature_c", "vapor_quality"]},
+    "fluidProperties": {
+      "required": ["mass", "enthalpy_kj_kg", "entropy_kj_kg_k", "reference_enthalpy_kj_kg", "reference_entropy_kj_kg_k"]
+    },
+    "fluidStateChangeTP": {
+      "required": ["mass", "inlet_temperature_c", "inlet_pressure_pa", "outlet_temperature_c", "outlet_pressure_pa"]
+    },
+    "fluidStateChangePQ": {
+      "required": ["mass", "inlet_pressure_pa", "inlet_vapor_quality", "outlet_pressure_pa", "outlet_vapor_quality"]
+    },
+    "nuclearInventory": {"required": ["isotope_mass_kg", "atomic_mass_g_mol", "energy_per_fission_mev"]},
+    "nuclearReactionSignal": {
+      "anyOf": [
+        {"required": ["reaction_preset"]},
+        {"required": ["q_value_mev"]},
+        {"required": ["reaction_count"]},
+        {"required": ["reaction_amount_mol"]},
+        {"required": ["reactant_atomic_masses_u"]},
+        {"required": ["product_atomic_masses_u"]},
+        {"required": ["reactant_1_number_density_m3"]},
+        {"required": ["reactant_2_number_density_m3"]},
+        {"required": ["reactivity_m3_s"]},
+        {"required": ["reaction_channels"]},
+        {"required": ["nuclear_channel"]}
+      ]
+    }
+  },
+  "dependentRequired": {
+    "chemical_exergy": ["energy_basis_value"],
+    "energy_basis_value": ["chemical_exergy"]
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"stream_type": {"const": "electricity"}}},
+      "then": {
+        "oneOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"$ref": "#/$defs/electricalCurrent"},
+          {"$ref": "#/$defs/electricalCapacitor"},
+          {"$ref": "#/$defs/electricalInductor"},
+          {"$ref": "#/$defs/electricalBattery"}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "mechanical"}}},
+      "then": {
+        "anyOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"required": ["torque_nm", "rotational_speed_rpm", "duration_hours"]},
+          {"required": ["moment_of_inertia_kg_m2", "rotational_speed_rpm"]},
+          {"required": ["mass", "velocity_m_s"]},
+          {"required": ["mass", "height_difference_m"]},
+          {"required": ["spring_constant_n_m", "displacement_m"]},
+          {"required": ["pressure_difference", "volume"]},
+          {"required": ["pressure_difference", "volume_flow_m3_s", "duration_hours"]}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"enum": ["electromagnetic_field", "electromagnetic", "em_field"]}}},
+      "then": {
+        "oneOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"required": ["field_cells"]},
+          {
+            "required": ["volume_m3"],
+            "anyOf": [
+              {"required": ["electric_field_v_m"]},
+              {"required": ["magnetic_flux_density_t"]}
+            ]
+          },
+          {"required": ["power_flux_density_w_m2", "area_m2", "duration_hours"]},
+          {"required": ["electric_field_rms_v_m", "area_m2", "duration_hours"]}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "heat"}}},
+      "then": {
+        "anyOf": [{"required": ["source_c"]}, {"required": ["phase_change_c"]}],
+        "oneOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"$ref": "#/$defs/sensibleMass"},
+          {"$ref": "#/$defs/sensibleFlow"},
+          {"$ref": "#/$defs/phaseChange"}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "fluid"}}},
+      "then": {
+        "anyOf": [
+          {"$ref": "#/$defs/fluidTP"},
+          {"$ref": "#/$defs/fluidPQ"},
+          {"$ref": "#/$defs/fluidTQ"},
+          {"$ref": "#/$defs/fluidProperties"},
+          {"$ref": "#/$defs/fluidStateChangeTP"},
+          {"$ref": "#/$defs/fluidStateChangePQ"}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "humid_air"}}},
+      "then": {
+        "required": ["dry_air_mass_kg", "pressure_pa"],
+        "allOf": [
+          {"anyOf": [{"required": ["temperature_c"]}, {"required": ["temperature_k"]}]},
+          {"anyOf": [{"required": ["humidity_ratio"]}, {"required": ["relative_humidity"]}]}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "cooling"}}},
+      "then": {
+        "required": ["cold_service_c", "ambient_sink_c"],
+        "oneOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"enum": ["fuel", "biomass", "bioenergy"]}}},
+      "then": {
+        "oneOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"$ref": "#/$defs/fuelMass"},
+          {"$ref": "#/$defs/fuelVolume"},
+          {"$ref": "#/$defs/mixtureFuel"}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"enum": ["biomass", "bioenergy"]}}},
+      "then": {
+        "oneOf": [
+          {"required": ["chemical_exergy", "energy_basis_value"]},
+          {"required": ["components"]},
+          {"required": ["fx"]},
+          {"required": ["exergy_factor"]}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "radiation"}}},
+      "then": {
+        "anyOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"$ref": "#/$defs/radiationResource"}
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "stream_type": {"const": "radiation"},
+          "radiation_model": {"enum": ["spectral_entropy", "measured_entropy"]}
+        },
+        "required": ["radiation_model"]
+      },
+      "then": {"required": ["radiation_entropy_j_k"]}
+    },
+    {
+      "if": {
+        "allOf": [
+          {"properties": {"stream_type": {"const": "radiation"}}},
+          {
+            "anyOf": [
+              {
+                "properties": {"radiation_model": {"const": "blackbody"}},
+                "required": ["radiation_model"]
+              },
+              {"not": {"required": ["radiation_model"]}}
+            ]
+          }
+        ]
+      },
+      "then": {
+        "anyOf": [
+          {"required": ["source_temperature_k"]},
+          {"required": ["source_temperature_c"]}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "separation"}}},
+      "then": {"required": ["amount_mol", "mole_fractions"], "anyOf": [{"required": ["temperature_k"]}, {"required": ["temperature_c"]}]}
+    },
+    {
+      "if": {
+        "allOf": [
+          {"properties": {"stream_type": {"enum": ["nuclear", "fission"]}}},
+          {
+            "anyOf": [
+              {
+                "properties": {"nuclear_mode": {"const": "inventory"}},
+                "required": ["nuclear_mode"]
+              },
+              {
+                "allOf": [
+                  {"not": {"required": ["nuclear_mode"]}},
+                  {"not": {"$ref": "#/$defs/nuclearReactionSignal"}}
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "required": ["accessible_fraction"],
+        "anyOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"required": ["mass_defect_kg"]},
+          {"$ref": "#/$defs/nuclearInventory"}
+        ]
+      }
+    },
+    {
+      "if": {
+        "anyOf": [
+          {
+            "allOf": [
+              {"properties": {"stream_type": {"enum": ["nuclear", "fission"]}}},
+              {
+                "properties": {"nuclear_mode": {"const": "reaction"}},
+                "required": ["nuclear_mode"]
+              }
+            ]
+          },
+          {"properties": {"stream_type": {"enum": ["fusion", "thermonuclear"]}}},
+          {
+            "allOf": [
+              {"properties": {"stream_type": {"enum": ["nuclear", "fission"]}}},
+              {"not": {"required": ["nuclear_mode"]}},
+              {"$ref": "#/$defs/nuclearReactionSignal"}
+            ]
+          }
+        ]
+      },
+      "then": {
+        "properties": {
+          "fx": {"maximum": 1},
+          "exergy_factor": {"maximum": 1}
+        },
+        "allOf": [
+          {
+            "anyOf": [
+              {"required": ["mass_defect_kg"]},
+              {"required": ["reaction_preset"]},
+              {"required": ["q_value_mev"]},
+              {"required": ["reactant_atomic_masses_u", "product_atomic_masses_u"]}
+            ]
+          },
+          {
+            "anyOf": [
+              {"required": ["mass_defect_kg"]},
+              {"required": ["reaction_count"]},
+              {"required": ["reaction_amount_mol"]},
+              {
+                "required": [
+                  "reactant_1_number_density_m3",
+                  "reactant_2_number_density_m3",
+                  "reactivity_m3_s",
+                  "reactivity_source",
+                  "volume_m3",
+                  "duration_seconds"
+                ]
+              },
+              {
+                "required": [
+                  "reactant_1_number_density_m3",
+                  "reactant_2_number_density_m3",
+                  "reactivity_m3_s",
+                  "reactivity_source",
+                  "volume_m3",
+                  "duration_hours"
+                ]
+              }
+            ]
+          },
+          {
+            "anyOf": [
+              {"required": ["reaction_preset"]},
+              {"required": ["reaction_channels"]},
+              {"required": ["fx"]},
+              {"required": ["exergy_factor"]}
+            ]
+          },
+          {
+            "if": {"required": ["reactant_atomic_masses_u"]},
+            "then": {"required": ["mass_convention"]}
+          }
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "plasma"}}},
+      "then": {
+        "oneOf": [
+          {
+            "allOf": [
+              {
+                "oneOf": [
+                  {"$ref": "#/$defs/suppliedQuantity"},
+                  {"$ref": "#/$defs/powerDuration"}
+                ]
+              },
+              {
+                "oneOf": [
+                  {"required": ["fx"]},
+                  {"required": ["exergy_factor"]}
+                ]
+              }
+            ]
+          },
+          {"required": ["volume_m3", "plasma_species"]}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "dissipation"}}},
+      "then": {
+        "anyOf": [
+          {"required": ["friction_force_n", "distance_m"]},
+          {"required": ["coefficient_of_rolling_resistance", "normal_force_n", "distance_m"]},
+          {"required": ["fluid_density_kg_m3", "drag_coefficient", "frontal_area_m2", "relative_speed_m_s", "distance_m"]},
+          {"required": ["fluid_density_kg_m3", "drag_coefficient", "frontal_area_m2", "relative_speed_m_s", "duration_hours"]}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "solar"}}},
+      "then": {
+        "oneOf": [
+          {"$ref": "#/$defs/suppliedQuantity"},
+          {"$ref": "#/$defs/powerDuration"},
+          {"$ref": "#/$defs/solarResource"}
+        ]
+      }
+    },
+    {
+      "if": {"properties": {"stream_type": {"const": "custom"}}},
+      "then": {
+        "allOf": [
+          {
+            "oneOf": [
+              {"required": ["fx"]},
+              {"required": ["exergy_factor"]}
+            ]
+          },
+          {
+            "oneOf": [
+              {"$ref": "#/$defs/suppliedQuantity"},
+              {"$ref": "#/$defs/powerDuration"}
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -3,29 +3,54 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Iterable, Optional
 
-from .adoption import ADOPTION_FIELDS, COMMON_NOTATION_EXAMPLES, INPUT_PATTERNS, STANDARD_INTEGRATION_POINTS
+from .accounting import EnergyAccountingError, account_energy_chain
+from .adoption import (
+    ADOPTION_FIELDS,
+    COMMON_NOTATION_EXAMPLES,
+    INPUT_PATTERNS,
+    STANDARD_INTEGRATION_POINTS,
+)
 from .api import (
     cooling as build_cooling,
+)
+from .api import (
     electricity as build_electricity,
-    fuel as build_fuel,
+)
+from .api import (
     from_notation as build_from_notation,
+)
+from .api import (
+    fuel as build_fuel,
+)
+from .api import (
     lookup as build_lookup,
+)
+from .api import (
     report as build_report,
+)
+from .api import (
     solar as build_solar,
+)
+from .api import (
     thermal as build_thermal,
 )
 from .clean import clean_file
-from .core import solar_exergy_rate
+from .core import solar_exergy_rate, verify_notation
 from .records import REPORT_SCHEMA_VERSION
 from .reference import filter_reference_examples
-from .core import verify_notation
 from .registry import registry_as_dict
 from .scenario import compare_scenario_file, scenario_to_markdown, scenario_to_table
-from .schema import load_record_schema
+from .schema import (
+    load_energy_accounting_request_schema,
+    load_record_schema,
+    load_stream_request_schema,
+)
+from .streams import StreamCalculationError, calculate_stream, stream_capabilities
 from .tiers import tiers_as_dict
 from .web_export import write_web_data
 
@@ -33,7 +58,10 @@ from .web_export import write_web_data
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="quantity-quality",
-        description="Adopt quantity-plus-Exergy-Factor energy reporting.",
+        description=(
+            "Calculate energy quantity, Exergy Factor, accessible exergy, and optional "
+            "end-use Applied Exergy accounts."
+        ),
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {_package_version()}")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -54,30 +82,40 @@ def build_parser() -> argparse.ArgumentParser:
 
     thermal = subparsers.add_parser("thermal", help="Compute a thermal Exergy Factor.")
     thermal.add_argument("--source-c", type=float, required=True)
-    thermal.add_argument("--sink-c", type=float, default=None, help="Reference sink in C; defaults to 20 C.")
+    thermal.add_argument(
+        "--sink-c", type=float, default=None, help="Reference sink in C; defaults to 20 C."
+    )
     thermal.add_argument("--quantity", type=float, default=1.0)
     thermal.add_argument("--unit", default="MWh_th")
     _add_context_args(thermal)
     thermal.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     thermal.set_defaults(func=cmd_thermal)
 
-    solar = subparsers.add_parser("solar", help="Compute solar radiation fx and optional exergy rate.")
+    solar = subparsers.add_parser(
+        "solar", help="Compute solar radiation fx and optional exergy rate."
+    )
     solar.add_argument("--quantity", type=float, default=1.0)
     solar.add_argument("--unit", default="MWh_solar")
     solar.add_argument("--reference-c", type=float, default=20.0)
     solar.add_argument("--irradiance-w-m2", type=float, default=None)
     solar.add_argument("--area-m2", type=float, default=None)
-    _add_context_args(solar, reference="20 C reference environment", boundary="solar resource boundary")
+    _add_context_args(
+        solar, reference="20 C reference environment", boundary="solar resource boundary"
+    )
     solar.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     solar.set_defaults(func=cmd_solar)
 
     calc = subparsers.add_parser("calc", help="Calculate common Quantity + Quality records.")
     calc_subparsers = calc.add_subparsers(dest="calc_command", required=True)
 
-    calc_custom = calc_subparsers.add_parser("custom", help="Calculate from quantity, unit, and fx.")
+    calc_custom = calc_subparsers.add_parser(
+        "custom", help="Calculate from quantity, unit, and fx."
+    )
     calc_custom.add_argument("--quantity", type=float, required=True)
     calc_custom.add_argument("--unit", required=True)
-    calc_custom.add_argument("--fx", "--exergy-factor", dest="exergy_factor", type=float, required=True)
+    calc_custom.add_argument(
+        "--fx", "--exergy-factor", dest="exergy_factor", type=float, required=True
+    )
     _add_context_args(calc_custom)
     calc_custom.add_argument("--label", default="")
     calc_custom.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
@@ -85,14 +123,18 @@ def build_parser() -> argparse.ArgumentParser:
 
     calc_thermal = calc_subparsers.add_parser("thermal", help="Calculate thermal Exergy Factor.")
     calc_thermal.add_argument("--source-c", type=float, required=True)
-    calc_thermal.add_argument("--sink-c", type=float, default=None, help="Reference sink in C; defaults to 20 C.")
+    calc_thermal.add_argument(
+        "--sink-c", type=float, default=None, help="Reference sink in C; defaults to 20 C."
+    )
     calc_thermal.add_argument("--quantity", type=float, default=1.0)
     calc_thermal.add_argument("--unit", default="MWh_th")
     _add_context_args(calc_thermal)
     calc_thermal.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     calc_thermal.set_defaults(func=cmd_thermal)
 
-    calc_cooling = calc_subparsers.add_parser("cooling", help="Calculate cooling service Exergy Factor.")
+    calc_cooling = calc_subparsers.add_parser(
+        "cooling", help="Calculate cooling service Exergy Factor."
+    )
     calc_cooling.add_argument("--cold-service-c", type=float, required=True)
     calc_cooling.add_argument("--ambient-sink-c", type=float, required=True)
     calc_cooling.add_argument("--quantity", type=float, default=1.0)
@@ -100,7 +142,9 @@ def build_parser() -> argparse.ArgumentParser:
     calc_cooling.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     calc_cooling.set_defaults(func=cmd_calc_cooling)
 
-    calc_electricity = calc_subparsers.add_parser("electricity", help="Calculate delivered electricity at fx = 1.")
+    calc_electricity = calc_subparsers.add_parser(
+        "electricity", help="Calculate delivered electricity at fx = 1."
+    )
     calc_electricity.add_argument("--quantity", type=float, default=1.0)
     calc_electricity.add_argument("--unit", default="MWh")
     calc_electricity.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
@@ -114,7 +158,9 @@ def build_parser() -> argparse.ArgumentParser:
     calc_fuel.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     calc_fuel.set_defaults(func=cmd_calc_fuel)
 
-    calc_reference = calc_subparsers.add_parser("reference", help="Calculate from a bundled reference id.")
+    calc_reference = calc_subparsers.add_parser(
+        "reference", help="Calculate from a bundled reference id."
+    )
     calc_reference.add_argument("id")
     calc_reference.add_argument("--quantity", type=float, default=1.0)
     calc_reference.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
@@ -152,7 +198,9 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     verify.set_defaults(func=cmd_verify)
 
-    annotate = subparsers.add_parser("annotate", help="Clean messy energy records into Quantity + Quality records.")
+    annotate = subparsers.add_parser(
+        "annotate", help="Clean messy energy records into Quantity + Quality records."
+    )
     _add_clean_args(annotate)
     annotate.set_defaults(func=cmd_annotate)
 
@@ -163,15 +211,27 @@ def build_parser() -> argparse.ArgumentParser:
     compare_cmd = subparsers.add_parser("compare", help="Compare a scenario JSON/YAML file.")
     compare_cmd.add_argument("scenario", help="Scenario .json, .yaml, or .yml file")
     compare_cmd.add_argument("--format", choices=("table", "json", "markdown"), default="table")
-    compare_cmd.add_argument("--output", "-o", default="", help="Optional output file for JSON or Markdown.")
+    compare_cmd.add_argument(
+        "--output", "-o", default="", help="Optional output file for JSON or Markdown."
+    )
     compare_cmd.set_defaults(func=cmd_compare)
 
     validate = subparsers.add_parser("validate", help="Validate/preview messy energy records.")
     validate.add_argument("input", help="Input .csv, .json, .jsonl, .ndjson, .xlsx, or .xls file")
-    validate.add_argument("--mapping", default="", help="JSON object or path mapping standard fields to source fields.")
-    validate.add_argument("--defaults", default="", help="JSON object or path with default field values.")
+    validate.add_argument(
+        "--mapping",
+        default="",
+        help="JSON object or path mapping standard fields to source fields.",
+    )
+    validate.add_argument(
+        "--defaults", default="", help="JSON object or path with default field values."
+    )
     validate.add_argument("--default-sink-c", type=float, default=20.0)
-    validate.add_argument("--no-default-sink", action="store_true", help="Do not assume T0 = 20 C for thermal records.")
+    validate.add_argument(
+        "--no-default-sink",
+        action="store_true",
+        help="Do not assume T0 = 20 C for thermal records.",
+    )
     validate.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     validate.set_defaults(func=cmd_validate)
 
@@ -180,8 +240,44 @@ def build_parser() -> argparse.ArgumentParser:
     schema.add_argument("--json-schema", action="store_true", help="Emit the record JSON Schema.")
     schema.set_defaults(func=cmd_schema)
 
-    export_web = subparsers.add_parser("export-web-data", help="Export static website reference data.")
-    export_web.add_argument("--output", "-o", required=True, help="Output JSON file for website reference data.")
+    calculate = subparsers.add_parser(
+        "calculate",
+        help="Calculate Q, fx, and accessible exergy from one JSON stream request.",
+    )
+    calculate.add_argument("request", help="Inline JSON object or path to a JSON request file.")
+    calculate.add_argument("--json", action="store_true", help="Emit the full JSON result.")
+    calculate.set_defaults(func=cmd_calculate_stream)
+
+    capabilities = subparsers.add_parser(
+        "capabilities", help="Show the stream request shapes supported by this version."
+    )
+    capabilities.add_argument("--json", action="store_true", help="Emit machine-readable JSON.")
+    capabilities.add_argument(
+        "--json-schema", action="store_true", help="Emit the stream request JSON Schema."
+    )
+    capabilities.set_defaults(func=cmd_capabilities)
+
+    account = subparsers.add_parser(
+        "account",
+        help=("Account for primary, secondary, final, useful energy, Applied Exergy, and service."),
+    )
+    account.add_argument(
+        "request",
+        nargs="?",
+        help="Inline JSON object or path to an end-use accounting request.",
+    )
+    account.add_argument("--json", action="store_true", help="Emit the full JSON result.")
+    account.add_argument(
+        "--json-schema", action="store_true", help="Emit the accounting request JSON Schema."
+    )
+    account.set_defaults(func=cmd_account)
+
+    export_web = subparsers.add_parser(
+        "export-web-data", help="Export static website reference data."
+    )
+    export_web.add_argument(
+        "--output", "-o", required=True, help="Output JSON file for website reference data."
+    )
     export_web.add_argument(
         "--js-output",
         default="",
@@ -189,10 +285,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     export_web.set_defaults(func=cmd_export_web_data)
 
-    serve_api = subparsers.add_parser("serve-api", help="Run the deterministic Quantity + Quality HTTP API.")
+    serve_api = subparsers.add_parser(
+        "serve-api", help="Run the deterministic Quantity + Quality HTTP API."
+    )
     serve_api.add_argument("--host", default="127.0.0.1")
     serve_api.add_argument("--port", type=int, default=8000)
-    serve_api.add_argument("--reload", action="store_true", help="Reload on code changes during local development.")
+    serve_api.add_argument(
+        "--reload", action="store_true", help="Reload on code changes during local development."
+    )
     serve_api.set_defaults(func=cmd_serve_api)
 
     return parser
@@ -201,7 +301,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = build_parser()
     args = parser.parse_args(list(argv) if argv is not None else None)
-    return int(args.func(args) or 0)
+    try:
+        return int(args.func(args) or 0)
+    except (StreamCalculationError, EnergyAccountingError) as exc:
+        if getattr(args, "json", False):
+            print(json.dumps({"ok": False, "error": exc.as_dict()}), file=sys.stderr)
+        else:
+            print(f"error [{exc.code}]: {exc}", file=sys.stderr)
+        return 2
 
 
 def cmd_report(args: argparse.Namespace) -> int:
@@ -294,7 +401,9 @@ def cmd_lookup(args: argparse.Namespace) -> int:
     else:
         print(payload.get("label", args.id))
         print(f"report: {payload['full_notation']}")
-        print(f"accessible exergy: {payload['accessible_exergy']:.6g} {payload['accessible_exergy_unit']}")
+        print(
+            f"accessible exergy: {payload['accessible_exergy']:.6g} {payload['accessible_exergy_unit']}"
+        )
         capabilities = ", ".join(payload.get("capabilities", []))
         if capabilities:
             print(f"capabilities: {capabilities}")
@@ -489,6 +598,60 @@ def cmd_schema(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_calculate_stream(args: argparse.Namespace) -> int:
+    record = calculate_stream(_load_request_arg(args.request))
+    _emit_report(record.as_dict(), args.json)
+    return 0
+
+
+def cmd_capabilities(args: argparse.Namespace) -> int:
+    if args.json_schema:
+        _emit_json(load_stream_request_schema())
+        return 0
+    payload = stream_capabilities()
+    if args.json:
+        _emit_json(payload)
+        return 0
+    print(payload["purpose"])
+    print("stream types:")
+    for stream_type in payload["stream_types"]:
+        print(f"  - {stream_type}")
+    print("Use `quantity-quality capabilities --json` for request fields and examples.")
+    return 0
+
+
+def cmd_account(args: argparse.Namespace) -> int:
+    if args.json_schema:
+        _emit_json(load_energy_accounting_request_schema())
+        return 0
+    if not args.request:
+        raise EnergyAccountingError(
+            "missing_input",
+            "request is required unless --json-schema is used",
+            field="request",
+        )
+    result = account_energy_chain(_load_request_arg(args.request)).as_dict()
+    if args.json:
+        _emit_json(result)
+        return 0
+    print(result.get("label", "End-use energy account"))
+    for name, stage in result["stages"].items():
+        line = f"{name}: {stage['quantity']:.6g} {stage['unit']}"
+        if stage.get("fx") is None:
+            line += f", fx = not supplied ({stage['accounting_method']})"
+        else:
+            line += f", fx = {stage['fx']:.3f}, X = {stage['exergy_mwh']:.6g} MWh_ex"
+        print(line)
+    if result.get("applied_exergy") is None:
+        print("Applied Exergy: not available from the supplied stages")
+    else:
+        print(f"Applied Exergy: {result['applied_exergy']:.6g} {result['applied_exergy_unit']}")
+    if result.get("service"):
+        service = result["service"]
+        print(f"Energy service: {service['quantity']:.6g} {service['unit']} ({service['name']})")
+    return 0
+
+
 def cmd_export_web_data(args: argparse.Namespace) -> int:
     payload = write_web_data(args.output, js_output=args.js_output or None)
     print(f"wrote: {args.output}")
@@ -527,11 +690,23 @@ def _add_context_args(
 
 def _add_clean_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("input", help="Input .csv, .json, .jsonl, .ndjson, .xlsx, or .xls file")
-    parser.add_argument("--output", "-o", default="", help="Optional output .csv, .json, .jsonl, or .ndjson file")
-    parser.add_argument("--mapping", default="", help="JSON object or path mapping standard fields to source fields.")
-    parser.add_argument("--defaults", default="", help="JSON object or path with default field values.")
+    parser.add_argument(
+        "--output", "-o", default="", help="Optional output .csv, .json, .jsonl, or .ndjson file"
+    )
+    parser.add_argument(
+        "--mapping",
+        default="",
+        help="JSON object or path mapping standard fields to source fields.",
+    )
+    parser.add_argument(
+        "--defaults", default="", help="JSON object or path with default field values."
+    )
     parser.add_argument("--default-sink-c", type=float, default=20.0)
-    parser.add_argument("--no-default-sink", action="store_true", help="Do not assume T0 = 20 C for thermal records.")
+    parser.add_argument(
+        "--no-default-sink",
+        action="store_true",
+        help="Do not assume T0 = 20 C for thermal records.",
+    )
     parser.add_argument(
         "--detailed",
         action="store_true",
@@ -580,13 +755,29 @@ def _load_json_arg(value: str) -> Optional[dict]:
     return data
 
 
+def _load_request_arg(value: str) -> dict:
+    try:
+        path = Path(value)
+        if path.exists():
+            data = json.loads(path.read_text(encoding="utf-8"))
+        else:
+            data = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise StreamCalculationError("invalid_json", "stream request must be valid JSON") from exc
+    if not isinstance(data, dict):
+        raise StreamCalculationError("invalid_request", "stream request must be a JSON object")
+    return data
+
+
 def _package_version() -> str:
     try:
         return version("quantity-and-quality")
     except PackageNotFoundError:
         pyproject = Path(__file__).resolve().parents[2] / "pyproject.toml"
         if pyproject.exists():
-            match = re.search(r'^version = "([^"]+)"', pyproject.read_text(encoding="utf-8"), flags=re.MULTILINE)
+            match = re.search(
+                r'^version = "([^"]+)"', pyproject.read_text(encoding="utf-8"), flags=re.MULTILINE
+            )
             if match:
                 return match.group(1)
         return "0.0.0+local"

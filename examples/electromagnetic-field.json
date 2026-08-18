@@ -1,0 +1,9 @@
+{
+  "stream_type": "electromagnetic_field",
+  "electric_field_rms_v_m": 100,
+  "wave_impedance_ohm": 376.730313412,
+  "area_m2": 2,
+  "duration_hours": 1,
+  "boundary": "receiving aperture",
+  "label": "uniform plane wave"
+}

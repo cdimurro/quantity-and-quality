@@ -1,0 +1,6 @@
+model,formula,portfolio_fx,valid_intervals
+primary_supply_ambient_carnot,1 - T_amb/T_sup_prim,0.2164230767941337,51592
+primary_supply_return_integrated_ambient,1 - T_amb ln(T_sup_prim/T_ret_prim)/(T_sup_prim-T_ret_prim),0.17197734144961677,46434
+secondary_supply_return_integrated_ambient,1 - T_amb ln(T_sup_sec/T_ret_sec)/(T_sup_sec-T_ret_sec),0.12482034375492373,49314
+primary_return_sink_carnot,1 - T_ret_prim/T_sup_prim,0.10560279285863487,46438
+primary_supply_fixed_20c_carnot,1 - T_20C/T_sup_prim,0.17265567265075354,51592

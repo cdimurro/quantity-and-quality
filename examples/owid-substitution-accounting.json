@@ -1,0 +1,21 @@
+{
+  "label": "Historical OWID-style substitution-method example",
+  "boundary": "Statistical primary-energy equivalent through electricity generation",
+  "primary": {
+    "quantity": 250,
+    "unit": "TWh",
+    "accounting_method": "substitution",
+    "label": "Counterfactual fossil-input equivalent",
+    "source_dataset": "Our World in Data Energy dataset (historical methodology)",
+    "source_variable": "solar_consumption"
+  },
+  "secondary": {
+    "quantity": 100,
+    "unit": "TWh_e",
+    "fx": 1.0,
+    "label": "Solar electricity generated",
+    "method": "electricity",
+    "source_dataset": "Our World in Data Energy dataset",
+    "source_variable": "solar_electricity"
+  }
+}

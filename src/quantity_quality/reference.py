@@ -55,11 +55,7 @@ def extract_temperature_context(record: dict) -> dict:
         "cold_service_c": record.get("cold_service_c"),
         "ambient_sink_c": record.get("ambient_sink_c"),
     }
-    explicit = {
-        key: float(value)
-        for key, value in explicit.items()
-        if value not in (None, "")
-    }
+    explicit = {key: float(value) for key, value in explicit.items() if value not in (None, "")}
     if explicit:
         return explicit
 

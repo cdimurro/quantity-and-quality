@@ -1,0 +1,22 @@
+{
+  "stream_type": "plasma",
+  "volume_m3": 1,
+  "reference_temperature_k": 293.15,
+  "plasma_species": [
+    {
+      "name": "electron",
+      "number_density_m3": 1e20,
+      "temperature_ev": 1000,
+      "charge_state": -1
+    },
+    {
+      "name": "deuteron",
+      "number_density_m3": 1e20,
+      "temperature_ev": 1000,
+      "charge_state": 1
+    }
+  ],
+  "magnetic_flux_density_t": 0.01,
+  "boundary": "one-cubic-metre plasma inventory",
+  "label": "ideal D-T-relevant plasma state"
+}

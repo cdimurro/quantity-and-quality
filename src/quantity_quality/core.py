@@ -5,7 +5,6 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Iterable, Mapping, Optional, Tuple, Union
 
-
 Number = Union[int, float]
 T_SUN_K = 5778.0
 STANDARD_AMBIENT_K = 293.15
@@ -130,6 +129,7 @@ class ParsedNotation:
     unit: str
     exergy_factor: float
     source_c: Optional[float] = None
+    return_c: Optional[float] = None
     sink_c: Optional[float] = None
     cold_service_c: Optional[float] = None
     energy_basis: Optional[str] = None
@@ -138,7 +138,9 @@ class ParsedNotation:
     def is_fully_specified(self) -> bool:
         """True when the record carries what a reader needs to re-derive `fx`."""
 
-        return self.sink_c is not None and (self.source_c is not None or self.cold_service_c is not None)
+        return self.sink_c is not None and (
+            self.source_c is not None or self.cold_service_c is not None
+        )
 
 
 def accessible_exergy(quantity_or_power: Number, exergy_factor: Number) -> float:
@@ -211,13 +213,14 @@ def exergy_unit(unit: str) -> str:
 # A temperature inside the declaration bracket: `80 C`, `80C`, `80°C`, `353.15 K`.
 # The degree sign is optional on input because the paper typesets `80°C` while the
 # wire format stays ASCII, and a reader pasting either one must be understood.
-_TEMP = r"(?P<{name}>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s*(?:°|º)?\s*(?P<{name}_unit>[CKF])?"
+_NUMBER = r"[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?"
+_TEMP = rf"(?P<{{name}}>{_NUMBER})\s*(?:°|º)?\s*(?P<{{name}}_unit>[CKF])?"
 
 _NOTATION_RE = re.compile(
-    r"^\s*(?P<quantity>[+-]?(?:\d+(?:\.\d*)?|\.\d+))\s+"
+    rf"^\s*(?P<quantity>{_NUMBER})\s+"
     r"(?P<unit>[^,\[]+?)\s*,\s*"
     r"(?:f_X|fx|fX)\s*=\s*"
-    r"(?P<factor>[+-]?(?:\d+(?:\.\d*)?|\.\d+))"
+    rf"(?P<factor>{_NUMBER})"
     # The declaration bracket is OPTIONAL, so the short form still parses. When it
     # is present it is what makes the record independently checkable, and this
     # parser refused it for as long as it existed: the pattern ended at the factor,
@@ -227,6 +230,8 @@ _NOTATION_RE = re.compile(
 )
 
 _BRACKET_TH_RE = re.compile(r"\bT_?h(?:ot)?\s*=\s*" + _TEMP.format(name="th"), re.IGNORECASE)
+_BRACKET_TS_RE = re.compile(r"\bT_?s(?:upply)?\s*=\s*" + _TEMP.format(name="ts"), re.IGNORECASE)
+_BRACKET_TR_RE = re.compile(r"\bT_?r(?:eturn)?\s*=\s*" + _TEMP.format(name="tr"), re.IGNORECASE)
 _BRACKET_T0_RE = re.compile(r"\bT_?0\s*=\s*" + _TEMP.format(name="t0"), re.IGNORECASE)
 _BRACKET_TCOLD_RE = re.compile(r"\bT_?cold\s*=\s*" + _TEMP.format(name="tcold"), re.IGNORECASE)
 _BRACKET_BASIS_RE = re.compile(r"\bbasis\s*=\s*(?P<basis>[^,\]]+)", re.IGNORECASE)
@@ -267,12 +272,16 @@ def parse_energy_notation(text: str) -> ParsedNotation:
     if not unit:
         raise ValueError("unit is required")
 
-    source_c = sink_c = cold_c = None
+    source_c = return_c = sink_c = cold_c = None
     basis = None
     bracket = match.group("bracket")
     if bracket:
         if (found := _BRACKET_TH_RE.search(bracket)) is not None:
             source_c = _temp_to_c(found.group("th"), found.group("th_unit"))
+        elif (found := _BRACKET_TS_RE.search(bracket)) is not None:
+            source_c = _temp_to_c(found.group("ts"), found.group("ts_unit"))
+        if (found := _BRACKET_TR_RE.search(bracket)) is not None:
+            return_c = _temp_to_c(found.group("tr"), found.group("tr_unit"))
         if (found := _BRACKET_T0_RE.search(bracket)) is not None:
             sink_c = _temp_to_c(found.group("t0"), found.group("t0_unit"))
         if (found := _BRACKET_TCOLD_RE.search(bracket)) is not None:
@@ -285,6 +294,7 @@ def parse_energy_notation(text: str) -> ParsedNotation:
         unit=unit,
         exergy_factor=factor,
         source_c=source_c,
+        return_c=return_c,
         sink_c=sink_c,
         cold_service_c=cold_c,
         energy_basis=basis,
@@ -315,7 +325,9 @@ class NotationVerification:
         if not self.verifiable:
             return f"not independently verifiable: {self.reason}"
         mark = "OK" if self.agrees else "MISMATCH"
-        return f"{self.equation} = {self.substitution} = {self.recomputed_exergy_factor:.3f}  [{mark}]"
+        return (
+            f"{self.equation} = {self.substitution} = {self.recomputed_exergy_factor:.3f}  [{mark}]"
+        )
 
 
 def verify_notation(text: str, *, tolerance: Optional[float] = None) -> NotationVerification:
@@ -343,20 +355,38 @@ def verify_notation(text: str, *, tolerance: Optional[float] = None) -> Notation
         )
     parsed = parse_energy_notation(text)
     stated_text = match.group("factor")
-    decimals = len(stated_text.partition(".")[2])
     if tolerance is None:
-        tolerance = 0.5 * (10 ** -decimals) if decimals else 0.5
+        tolerance = _printed_number_tolerance(stated_text)
 
     if parsed.sink_c is None:
         return NotationVerification(
-            verifiable=False, agrees=False, stated_exergy_factor=parsed.exergy_factor,
-            recomputed_exergy_factor=None, equation="", substitution="",
-            difference=None, tolerance=tolerance,
+            verifiable=False,
+            agrees=False,
+            stated_exergy_factor=parsed.exergy_factor,
+            recomputed_exergy_factor=None,
+            equation="",
+            substitution="",
+            difference=None,
+            tolerance=tolerance,
             reason="the record declares no reference temperature T0",
         )
 
     sink_k = float(parsed.sink_c) + 273.15
-    if parsed.source_c is not None:
+    if "_solar" in parsed.unit.lower():
+        recomputed = petela_exergy_factor(sink_k)
+        equation = "fx = 1 - (4/3)(T0/Tsun) + (1/3)(T0/Tsun)^4"
+        substitution = f"T0={sink_k:g} K, Tsun={T_SUN_K:g} K"
+    elif parsed.source_c is not None and parsed.return_c is not None:
+        recomputed = sensible_heat_exergy_factor_c(
+            parsed.source_c,
+            parsed.return_c,
+            parsed.sink_c,
+        )
+        equation = "fx = 1 - T0 ln(Ts/Tr)/(Ts-Tr)"
+        source_k = parsed.source_c + 273.15
+        return_k = parsed.return_c + 273.15
+        substitution = f"1 - {sink_k:g} ln({source_k:g}/{return_k:g})/({source_k:g}-{return_k:g})"
+    elif parsed.source_c is not None:
         source_k = float(parsed.source_c) + 273.15
         recomputed = thermal_exergy_factor(source_k, sink_k)
         equation = "fx = 1 - T0/Th"
@@ -368,9 +398,14 @@ def verify_notation(text: str, *, tolerance: Optional[float] = None) -> Notation
         substitution = f"{sink_k:g}/{cold_k:g} - 1"
     else:
         return NotationVerification(
-            verifiable=False, agrees=False, stated_exergy_factor=parsed.exergy_factor,
-            recomputed_exergy_factor=None, equation="", substitution="",
-            difference=None, tolerance=tolerance,
+            verifiable=False,
+            agrees=False,
+            stated_exergy_factor=parsed.exergy_factor,
+            recomputed_exergy_factor=None,
+            equation="",
+            substitution="",
+            difference=None,
+            tolerance=tolerance,
             reason="the record declares T0 but no source or cold-service temperature",
         )
 
@@ -400,7 +435,8 @@ def report_from_notation(
         quantity=parsed.quantity,
         unit=parsed.unit,
         exergy_factor=parsed.exergy_factor,
-        context=context or ReferenceContext(
+        context=context
+        or ReferenceContext(
             reference="declared by reporter",
             boundary="declared by reporter",
             operating_basis="provided Exergy Factor",
@@ -418,8 +454,10 @@ def thermal_exergy_factor(source_k: Number, sink_k: Number) -> float:
         raise ValueError("temperatures must be finite")
     if source <= 0 or sink <= 0:
         raise ValueError("temperatures must be above absolute zero")
-    if source <= sink:
-        raise ValueError("source temperature must be greater than sink temperature")
+    if source < sink:
+        raise ValueError("source temperature must be greater than or equal to sink temperature")
+    if source == sink:
+        return 0.0
     return 1.0 - sink / source
 
 
@@ -442,9 +480,43 @@ def cooling_exergy_factor_c(cold_service_c: Number, ambient_sink_c: Number) -> f
         raise ValueError("temperatures must be finite")
     if cold <= 0 or ambient <= 0:
         raise ValueError("temperatures must be above absolute zero")
-    if ambient <= cold:
-        raise ValueError("ambient sink must be warmer than the cold service")
+    if ambient < cold:
+        raise ValueError("ambient sink must be warmer than or equal to the cold service")
+    if ambient == cold:
+        return 0.0
     return ambient / cold - 1.0
+
+
+def sensible_heat_exergy_factor_c(
+    supply_c: Number,
+    return_c: Number,
+    sink_c: Number,
+) -> float:
+    """Average Exergy Factor for sensible heat cooling from supply to return.
+
+    This constant-heat-capacity integral is the F3 sensitivity model used by the
+    canonical paper: ``1 - T0 * ln(Ts/Tr) / (Ts - Tr)``. Temperatures are supplied
+    in degrees Celsius and converted to kelvin internally.
+    """
+
+    supply = float(supply_c) + 273.15
+    return_temperature = float(return_c) + 273.15
+    sink = float(sink_c) + 273.15
+    if not all(math.isfinite(value) for value in (supply, return_temperature, sink)):
+        raise ValueError("temperatures must be finite")
+    if min(supply, return_temperature, sink) <= 0:
+        raise ValueError("temperatures must be above absolute zero")
+    if supply <= return_temperature:
+        raise ValueError("supply temperature must be greater than return temperature")
+    logarithmic_mean = (supply - return_temperature) / math.log(supply / return_temperature)
+    if logarithmic_mean < sink:
+        raise ValueError(
+            "the logarithmic-mean stream temperature must be greater than or equal to "
+            "the reference sink"
+        )
+    if logarithmic_mean == sink:
+        return 0.0
+    return 1.0 - sink / logarithmic_mean
 
 
 def petela_exergy_factor(reference_k: Number = STANDARD_AMBIENT_K) -> float:
@@ -452,6 +524,10 @@ def petela_exergy_factor(reference_k: Number = STANDARD_AMBIENT_K) -> float:
 
     reference = float(reference_k)
     _require_positive(reference, "reference_k")
+    if reference > T_SUN_K:
+        raise ValueError("reference_k must not exceed the solar source temperature")
+    if reference == T_SUN_K:
+        return 0.0
     ratio = reference / T_SUN_K
     return 1.0 - (4.0 / 3.0) * ratio + (1.0 / 3.0) * ratio**4
 
@@ -548,4 +624,16 @@ def _require_valid_factor(value: Number) -> None:
 
 def _format_number(value: float, precision: int = 3) -> str:
     text = f"{value:.{precision}f}"
-    return text.rstrip("0").rstrip(".")
+    compact = text.rstrip("0").rstrip(".")
+    if value != 0 and float(compact or "0") == 0:
+        return f"{value:.{precision}g}"
+    return compact
+
+
+def _printed_number_tolerance(text: str) -> float:
+    """Half of the final printed place, including scientific notation."""
+
+    mantissa, marker, exponent_text = text.lower().partition("e")
+    decimals = len(mantissa.partition(".")[2])
+    exponent = int(exponent_text) if marker else 0
+    return 0.5 * (10.0 ** (exponent - decimals))

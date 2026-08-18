@@ -1,0 +1,11 @@
+{
+  "stream_type": "heat",
+  "mass_flow_kg_s": 2.5,
+  "duration_hours": 8,
+  "specific_heat_kj_kg_k": 4.186,
+  "source_c": 80,
+  "return_c": 50,
+  "sink_c": 20,
+  "output_unit": "MWh_th",
+  "label": "Hot-water loop"
+}

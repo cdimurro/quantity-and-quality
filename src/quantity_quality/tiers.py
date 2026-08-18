@@ -42,7 +42,15 @@ FIDELITY_TIERS: tuple[FidelityTierDefinition, ...] = (
         tier="F3",
         name="dynamic interval",
         summary="Interval factor computed from synchronized operating telemetry.",
-        minimum_context=("quantity or power", "unit", "fx", "reference", "boundary", "basis", "interval"),
+        minimum_context=(
+            "quantity or power",
+            "unit",
+            "fx",
+            "reference",
+            "boundary",
+            "basis",
+            "interval",
+        ),
     ),
     FidelityTierDefinition(
         tier="F4",
@@ -116,13 +124,19 @@ def infer_fidelity_tier(record: Mapping[str, object]) -> str:
     return "F0"
 
 
-def conformance_issues(record: Mapping[str, object], *, tier: Optional[str] = None) -> tuple[str, ...]:
+def conformance_issues(
+    record: Mapping[str, object], *, tier: Optional[str] = None
+) -> tuple[str, ...]:
     """Return human-readable conformance gaps for the declared or inferred tier."""
 
     selected = normalize_tier(tier) if tier else infer_fidelity_tier(record)
     issues: list[str] = []
 
-    if record.get("quantity") in (None, "") and record.get("power") in (None, "") and record.get("notation") in (None, ""):
+    if (
+        record.get("quantity") in (None, "")
+        and record.get("power") in (None, "")
+        and record.get("notation") in (None, "")
+    ):
         issues.append("quantity, power, or notation is required")
     if record.get("unit") in (None, "") and record.get("notation") in (None, ""):
         issues.append("unit is required")
@@ -139,13 +153,14 @@ def conformance_issues(record: Mapping[str, object], *, tier: Optional[str] = No
             issues.append(f"basis or operating_basis is required for {selected} records")
 
     unit = str(record.get("unit", "")).lower()
-    if selected in {"F2", "F3", "F4"} and "_th" in unit:
+    method = str(record.get("method", "")).lower()
+    if selected in {"F2", "F3", "F4"} and "_th" in unit and method not in {"fluid", "dissipation"}:
         if record.get("source_c") in (None, ""):
             issues.append("source_c is required for F2+ thermal records")
         if record.get("sink_c") in (None, ""):
             issues.append("sink_c is required for F2+ thermal records")
 
-    if selected in {"F3", "F4"}:
+    if selected == "F3":
         metadata = record.get("metadata")
         if (
             record.get("interval") in (None, "")
@@ -160,7 +175,28 @@ def conformance_issues(record: Mapping[str, object], *, tier: Optional[str] = No
                 )
             )
         ):
-            issues.append(f"interval, interval_start, or timestamp is required for {selected} records")
+            issues.append(
+                f"interval, interval_start, or timestamp is required for {selected} records"
+            )
+
+    if selected == "F4":
+        metadata = record.get("metadata")
+        metadata = metadata if isinstance(metadata, Mapping) else {}
+        has_state_vector = bool(
+            record.get("state_variables")
+            or metadata.get("state_variables")
+            or (metadata.get("inlet") and metadata.get("outlet"))
+        )
+        if not has_state_vector:
+            issues.append(
+                "state_variables or inlet/outlet state vectors are required for F4 records"
+            )
+        if not (
+            record.get("balance_closure")
+            or metadata.get("balance_closure")
+            or metadata.get("exergy_balance_closure")
+        ):
+            issues.append("balance_closure is required for F4 records")
 
     return tuple(dict.fromkeys(issues))
 

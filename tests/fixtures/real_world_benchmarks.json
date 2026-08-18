@@ -1,0 +1,148 @@
+{
+  "schema_version": "1.0",
+  "sources": {
+    "xai4heat": {
+      "url": "https://github.com/xai4heat/xai4heat",
+      "commit": "fc7ee9ada9e2be658914c5b41e572c00e624ad1e",
+      "files": {
+        "xai4heat_2024-25_L12.csv": "903657d0c4fe0c764632efdd628ccfa5748962e0057bc1fb4e658a055f77c683",
+        "xai4heat_2024-25_L17.csv": "f98dcf44bc903b6221d933853f6eebcacacd943635297e2d42d8389f34fec820",
+        "xai4heat_2024-25_L22.csv": "b6c354d5a69795382adb093581db9ce16d29c25015697f134c0b91fa853fad58",
+        "xai4heat_2024-25_L4.csv": "ba36f5b47be712d3d19afe8c55223b8429f0524f5c1daffebfe7ea053fad54b9"
+      },
+      "license": "MIT",
+      "rows": [
+        {
+          "station": "L12",
+          "datetime": "2024-11-17 06:00:00",
+          "t_amb": 1.68,
+          "t_sup_prim": 78.3,
+          "t_ret_prim": 38.32,
+          "t_sup_sec": 40.44,
+          "t_ret_sec": 29.66,
+          "qizm": 76.39999999992142,
+          "expected_primary_carnot_fx": 0.2180110968843363,
+          "expected_primary_integrated_fx": 0.16984272618060126,
+          "expected_secondary_integrated_fx": 0.10818291919167022
+        },
+        {
+          "station": "L17",
+          "datetime": "2024-11-17 06:00:00",
+          "t_amb": 1.76,
+          "t_sup_prim": 80.62,
+          "t_ret_prim": 48.56,
+          "t_sup_sec": 46.76,
+          "t_ret_sec": 30.98,
+          "qizm": 183.19999999948777,
+          "expected_primary_carnot_fx": 0.22291319218701422,
+          "expected_primary_integrated_fx": 0.18541863931416314,
+          "expected_secondary_integrated_fx": 0.11874682006771953
+        },
+        {
+          "station": "L22",
+          "datetime": "2024-11-17 06:00:00",
+          "t_amb": 2.9,
+          "t_sup_prim": 79.02,
+          "t_ret_prim": 35.68,
+          "t_sup_sec": 41.4,
+          "t_ret_sec": 29.92,
+          "qizm": 75.99999999911233,
+          "expected_primary_carnot_fx": 0.21614561149444877,
+          "expected_primary_integrated_fx": 0.16355034803968527,
+          "expected_secondary_integrated_fx": 0.10598167857453966
+        },
+        {
+          "station": "L4",
+          "datetime": "2024-11-17 06:00:00",
+          "t_amb": 0.54,
+          "t_sup_prim": 80.56,
+          "t_ret_prim": 36.72,
+          "t_sup_sec": 47.06,
+          "t_ret_sec": 34.16,
+          "qizm": 171.19999999704305,
+          "expected_primary_carnot_fx": 0.22623052783353592,
+          "expected_primary_integrated_fx": 0.17390747839825027,
+          "expected_secondary_integrated_fx": 0.12758617059736777
+        }
+      ],
+      "invalid_state": {
+        "station": "L12",
+        "datetime": "2025-03-06 14:15:00",
+        "t_amb": 26.48,
+        "t_sup_sec": 27.28,
+        "t_ret_sec": 25.14,
+        "qizm": 0.0,
+        "logarithmic_mean_c": 26.208725164905843
+      },
+      "portfolio": {
+        "rows": 51592,
+        "primary_carnot_fx": 0.2164230767941337,
+        "primary_integrated_fx": 0.17197734144961677,
+        "secondary_integrated_fx": 0.12482034375492373,
+        "primary_return_sink_fx": 0.10560279285863487,
+        "primary_integrated_valid_intervals": 46434,
+        "secondary_integrated_valid_intervals": 49314,
+        "primary_return_sink_valid_intervals": 46438
+      }
+    },
+    "owid_energy": {
+      "url": "https://github.com/owid/energy-data",
+      "commit": "7e387a16f70a510e433f8aac7efeac6faa1e5059",
+      "data_sha256": "266f2e2baad7975351bc9bb4aa061d22b1da9fe4c47d51d2ac6071e01e171f76",
+      "codebook_sha256": "3cc9b7db0d921496e2988568ce3aee5ed41f50431dd234a0663b5f0a4b2e32bb",
+      "license": "CC BY 4.0",
+      "rows": [
+        {
+          "country": "United States",
+          "iso_code": "USA",
+          "year": 2024,
+          "primary_energy_consumption_twh": 26528.611,
+          "electricity_generation_twh": 4391.02,
+          "renewables_consumption_twh": 3175.228,
+          "renewables_accounting_method": "substitution"
+        },
+        {
+          "country": "Germany",
+          "iso_code": "DEU",
+          "year": 2024,
+          "primary_energy_consumption_twh": 3195.441,
+          "electricity_generation_twh": 495.99,
+          "renewables_consumption_twh": 756.721,
+          "renewables_accounting_method": "substitution"
+        },
+        {
+          "country": "World",
+          "iso_code": null,
+          "year": 2024,
+          "primary_energy_consumption_twh": 176737.094,
+          "electricity_generation_twh": 30930.23,
+          "renewables_consumption_twh": 25979.023,
+          "renewables_accounting_method": "substitution"
+        }
+      ]
+    },
+    "iapws_if97": {
+      "url": "https://www.iapws.org/relguide/IF97-Rev.pdf",
+      "release": "IAPWS R7-97(2012)",
+      "saturation_points": [
+        {"pressure_bar_absolute": 0.5, "temperature_c": 81.3167359966414},
+        {"pressure_bar_absolute": 0.723, "temperature_c": 90.7846579668676},
+        {"pressure_bar_absolute": 1.01325, "temperature_c": 99.97430000048058},
+        {"pressure_bar_absolute": 10.0, "temperature_c": 179.88563239146663},
+        {"pressure_bar_absolute": 50.0, "temperature_c": 263.9428711863302},
+        {"pressure_bar_absolute": 220.64, "temperature_c": 373.9459999988119}
+      ]
+    },
+    "nist_si": {
+      "url": "https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b9",
+      "watt_hour_j": 3600.0,
+      "btu_it_j": 1055.05585262,
+      "therm_us_j": 105480400.0
+    },
+    "eia_2026_estimates": {
+      "url": "https://www.eia.gov/energyexplained/units-and-calculators/energy-conversion-calculators.php",
+      "natural_gas_btu_per_scf": 1036.0,
+      "crude_oil_btu_per_barrel": 5689000.0
+    }
+  }
+}

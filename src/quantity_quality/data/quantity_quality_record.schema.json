@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/cdimurro/quantity-and-quality/schemas/quantity_quality_record.schema.json",
+  "$id": "https://raw.githubusercontent.com/cdimurro/quantity-and-quality/main/data/quantity_quality_record.schema.json",
   "title": "Quantity + Quality Energy Record",
   "description": "A machine-readable record for reporting energy quantity together with Exergy Factor.",
   "type": "object",
@@ -11,6 +11,10 @@
     },
     "label": {
       "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["energy", "power"]
     },
     "quantity": {
       "type": "number",
@@ -53,11 +57,45 @@
     "accessible_exergy_unit": {
       "type": "string"
     },
+    "accessible_exergy_rate": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accessible_exergy_rate_unit": {
+      "type": "string"
+    },
+    "accessible_exergy_mwh": {
+      "type": "number",
+      "minimum": 0
+    },
+    "accessible_exergy_mw": {
+      "type": "number",
+      "minimum": 0
+    },
+    "distinguishability": {
+      "type": "object",
+      "required": ["status", "distinguishable", "basis", "evidence", "exergy_factor"],
+      "properties": {
+        "schema_version": {"type": "string"},
+        "status": {
+          "type": "string",
+          "enum": ["distinguishable", "indistinguishable"]
+        },
+        "distinguishable": {"type": "boolean"},
+        "basis": {"type": "string"},
+        "evidence": {"type": "string"},
+        "exergy_factor": {"type": "number", "minimum": 0},
+        "factor_role": {"type": "string"},
+        "source_state": {"type": "object"},
+        "reference_state": {"type": "object"},
+        "difference": {"type": "object"}
+      }
+    },
     "reference_id": {
       "type": "string"
     },
     "reference": {
-      "type": "string"
+      "oneOf": [{"type": "string"}, {"type": "object"}]
     },
     "boundary": {
       "type": "string"
@@ -70,6 +108,19 @@
     },
     "method": {
       "type": "string"
+    },
+    "method_id": {
+      "type": "string"
+    },
+    "stream_type": {
+      "type": "string",
+      "enum": ["electricity", "mechanical", "electromagnetic_field", "heat", "cooling", "fluid", "humid_air", "fuel", "solar", "radiation", "separation", "nuclear", "plasma", "dissipation", "custom"]
+    },
+    "quantity_method_id": {
+      "type": "string"
+    },
+    "calculation_inputs": {
+      "type": "object"
     },
     "stream_id": {
       "type": "string"
@@ -87,6 +138,9 @@
       "type": "string"
     },
     "source_c": {
+      "type": "number"
+    },
+    "return_c": {
       "type": "number"
     },
     "sink_c": {
@@ -107,6 +161,33 @@
     },
     "energy_basis": {
       "type": "string"
+    },
+    "energy_basis_value": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "Numeric energy denominator used with chemical_exergy. HHV/LHV labels belong in energy_basis."
+    },
+    "carrier_registry_version": {
+      "type": "string"
+    },
+    "uncertainty": {
+      "oneOf": [{"type": "number", "minimum": 0}, {"type": "object"}]
+    },
+    "data_quality_flag": {
+      "type": "string"
+    },
+    "metadata": {
+      "type": "object"
+    },
+    "readiness": {
+      "type": "object"
+    },
+    "source": {
+      "type": "object"
+    },
+    "issues": {
+      "type": "array",
+      "items": {"type": "object"}
     },
     "capabilities": {
       "type": "array",
@@ -142,40 +223,32 @@
       "type": "boolean"
     }
   },
-  "required": ["unit"],
-  "allOf": [
+  "anyOf": [
     {
-      "anyOf": [
-        {
-          "required": ["quantity"]
-        },
-        {
-          "required": ["power"]
-        },
-        {
-          "required": ["notation"]
-        }
-      ]
+      "required": ["notation"]
     },
     {
-      "anyOf": [
+      "allOf": [
         {
-          "required": ["fx"]
+          "required": ["unit"]
         },
         {
-          "required": ["exergy_factor"]
+          "anyOf": [
+            {"required": ["quantity"]},
+            {"required": ["power"]}
+          ]
         },
         {
-          "required": ["reference_id"]
-        },
-        {
-          "required": ["source_c", "sink_c"]
-        },
-        {
-          "required": ["cold_service_c", "ambient_sink_c"]
-        },
-        {
-          "required": ["chemical_exergy", "energy_basis"]
+          "anyOf": [
+            {"required": ["fx"]},
+            {"required": ["exergy_factor"]},
+            {"required": ["reference_id"]},
+            {"required": ["source_c", "sink_c"]},
+            {"required": ["cold_service_c", "ambient_sink_c"]},
+            {"required": ["chemical_exergy", "energy_basis_value"]},
+            {"required": ["tier"], "properties": {"tier": {"const": "F0"}}},
+            {"required": ["fidelity_tier"], "properties": {"fidelity_tier": {"const": "F0"}}}
+          ]
         }
       ]
     }

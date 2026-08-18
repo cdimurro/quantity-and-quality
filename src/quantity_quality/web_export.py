@@ -8,7 +8,6 @@ from .reference import extract_temperature_context, load_reference_examples
 from .registry import registry_as_dict
 from .tiers import tiers_as_dict
 
-
 WEB_DATA_SCHEMA_VERSION = "exergy_factor_web_data_v1"
 
 
@@ -154,17 +153,15 @@ def _typed_unit(web_key: str, reference: Mapping[str, object]) -> str:
 def _default_tier(reference: Mapping[str, object]) -> str:
     category = str(reference.get("category", "")).lower()
     basis_type = str(reference.get("basis_type", "")).lower()
-    if category == "thermal" or basis_type in {"thermal_carnot", "cooling_service", "radiative_petela"}:
+    if category == "thermal" or basis_type in {
+        "thermal_carnot",
+        "cooling_service",
+        "radiative_petela",
+    }:
         return "F2"
     return "F1"
 
 
 def _browser_bundle(data: Mapping[str, object], *, variable_name: str) -> str:
     payload = json.dumps(data, separators=(",", ":"))
-    return (
-        "window."
-        f"{variable_name}"
-        " = "
-        f"{payload}"
-        ";\n"
-    )
+    return f"window.{variable_name} = {payload};\n"
