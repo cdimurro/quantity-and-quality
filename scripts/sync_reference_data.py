@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import io
 import json
 from pathlib import Path
@@ -21,6 +22,14 @@ PACKAGE_STREAM_SCHEMA_PATH = (
 ACCOUNTING_SCHEMA_PATH = ROOT / "data" / "energy_accounting_request.schema.json"
 PACKAGE_ACCOUNTING_SCHEMA_PATH = (
     ROOT / "src" / "quantity_quality" / "data" / "energy_accounting_request.schema.json"
+)
+CONFORMANCE_PATH = ROOT / "data" / "conformance_contract_v1.json"
+PACKAGE_CONFORMANCE_PATH = (
+    ROOT / "src" / "quantity_quality" / "data" / "conformance_contract_v1.json"
+)
+CONFORMANCE_SCHEMA_PATH = ROOT / "data" / "conformance_contract_v1.schema.json"
+PACKAGE_CONFORMANCE_SCHEMA_PATH = (
+    ROOT / "src" / "quantity_quality" / "data" / "conformance_contract_v1.schema.json"
 )
 
 
@@ -67,10 +76,24 @@ def main(argv=None) -> None:
         if ACCOUNTING_SCHEMA_PATH.exists()
         else None
     )
+    conformance = json.loads(CONFORMANCE_PATH.read_text(encoding="utf-8"))
+    reference_hash = hashlib.sha256(
+        DATA_PATH.read_text(encoding="utf-8").encode("utf-8")
+    ).hexdigest()
+    if conformance["reference_data"]["sha256"] != reference_hash:
+        raise SystemExit(
+            f"conformance contract reference-data hash is stale: expected {reference_hash}"
+        )
+    if conformance["reference_data"]["record_count"] != len(records):
+        raise SystemExit("conformance contract reference-data record count is stale")
+    conformance_text = json.dumps(conformance, indent=2) + "\n"
+    conformance_schema_text = CONFORMANCE_SCHEMA_PATH.read_text(encoding="utf-8")
 
     expected = {
         CSV_PATH: csv_text,
         PACKAGE_DATA_PATH: package_data_text,
+        PACKAGE_CONFORMANCE_PATH: conformance_text,
+        PACKAGE_CONFORMANCE_SCHEMA_PATH: conformance_schema_text,
     }
     if schema_text is not None:
         expected[PACKAGE_SCHEMA_PATH] = schema_text
@@ -93,6 +116,8 @@ def main(argv=None) -> None:
     CSV_PATH.write_text(csv_text, encoding="utf-8")
     PACKAGE_DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
     PACKAGE_DATA_PATH.write_text(package_data_text, encoding="utf-8")
+    PACKAGE_CONFORMANCE_PATH.write_text(conformance_text, encoding="utf-8")
+    PACKAGE_CONFORMANCE_SCHEMA_PATH.write_text(conformance_schema_text, encoding="utf-8")
 
     if schema_text is not None:
         PACKAGE_SCHEMA_PATH.write_text(schema_text, encoding="utf-8")
@@ -103,6 +128,8 @@ def main(argv=None) -> None:
 
     print(f"wrote {CSV_PATH.relative_to(ROOT)}")
     print(f"wrote {PACKAGE_DATA_PATH.relative_to(ROOT)}")
+    print(f"wrote {PACKAGE_CONFORMANCE_PATH.relative_to(ROOT)}")
+    print(f"wrote {PACKAGE_CONFORMANCE_SCHEMA_PATH.relative_to(ROOT)}")
     if SCHEMA_PATH.exists():
         print(f"wrote {PACKAGE_SCHEMA_PATH.relative_to(ROOT)}")
     if STREAM_SCHEMA_PATH.exists():

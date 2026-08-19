@@ -4,6 +4,19 @@ The project treats numerical correctness as a release requirement. Validation is
 split into exact identities, equation conformance, public-data regression tests,
 and explicitly labeled estimates.
 
+## Cross-product conformance
+
+`data/conformance_contract_v1.json` is the canonical compatibility boundary for
+Quantity and Quality, The Exergy Imperative, and the Exergy Factor browser. It
+declares shared constants, explicit 20 °C and 25 °C Petela reference cases,
+valid numerical cases and tolerances, invalid-input behavior, canonical
+notation, and the SHA-256 and record count of the reference dataset.
+
+Each consumer vendors the contract and runs only the cases that name that
+implementation. CI also regenerates or compares the vendored copy against this
+repository, so a formula, default, notation rule, or data revision cannot move
+silently.
+
 ## What is validated
 
 - Every supported energy unit is round-tripped through MWh. SI and customary

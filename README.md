@@ -16,6 +16,17 @@ task.
 [Physical models](docs/physical-streams.md) ·
 [Validation](docs/validation.md)
 
+## One Product Stack
+
+The shared path is: **discover the missing quality field, standardize the
+record, then turn it into an auditable decision.**
+
+| Product | Use it when |
+|---|---|
+| **[Exergy Factor](https://exergyfactor.com)** | You need a free, no-install calculator for one or a few energy records. |
+| **Quantity and Quality** | You need the canonical calculation kernel, CLI, schemas, API, or batch reporting standard. |
+| **[The Exergy Imperative](https://github.com/cdimurro/the-exergy-imperative)** | You need to turn utility or telemetry data into prioritized losses, emissions, health screens, economics, and reports. |
+
 Conventional energy records usually provide only a quantity:
 
 ```text
@@ -267,6 +278,18 @@ GET  /v1/accounting/schema
 POST /v1/account
 ```
 
+Request a hosted key at [exergyfactor.com](https://exergyfactor.com/api-key.html)
+or use the endpoint directly. Terms acceptance is a required request field:
+
+```bash
+curl https://api.exergyfactor.com/v1/api-keys/request \
+  -H "Content-Type: application/json" \
+  -d '{"email":"you@example.com","accept_terms":true}'
+```
+
+The applicable hosted-service terms are published at
+[exergyfactor.com/terms.html](https://exergyfactor.com/terms.html).
+
 Open <http://127.0.0.1:8000/docs> for interactive API documentation. Invalid
 requests return stable error codes and identify the field that needs attention.
 
@@ -276,6 +299,8 @@ The packaged schemas are:
 data/quantity_quality_record.schema.json
 data/stream_calculation_request.schema.json
 data/energy_accounting_request.schema.json
+data/conformance_contract_v1.json
+data/conformance_contract_v1.schema.json
 ```
 
 The [reference-data guide](data/README.md) defines fields, notation, precision,
@@ -308,6 +333,11 @@ domain checks, real public-data fixtures, package builds, and wheel installation
 across supported Python versions. See [numerical validation](docs/validation.md)
 for benchmarks, tolerances, data revisions, and the full live-data test.
 
+The versioned cross-product contract pins shared equations, explicit reference
+conditions, tolerances, invalid-input behavior, notation, and the reference-data
+SHA-256. Both Python packages and the browser calculator execute the applicable
+cases in CI. The web export also publishes the source package version and hash.
+
 ## Documentation
 
 | Guide | Use it for |
@@ -323,13 +353,11 @@ for benchmarks, tolerances, data revisions, and the full live-data test.
 
 ## Project Boundary
 
-This repository is dedicated to calculating and reporting the exact quantity
-and quality of energy streams. It does not model technologies, emissions,
-health, or economics. [The Exergy Imperative](https://github.com/cdimurro/the-exergy-imperative)
-uses stream-level thermodynamics for that wider downstream analysis.
-
-[exergyfactor.com](https://exergyfactor.com) is the simple browser calculator;
-this package supplies the deeper programmable and auditable calculation layer.
+This repository is the canonical reporting standard and deterministic
+stream-calculation layer. It does not model technologies, emissions, health, or
+economics; The Exergy Imperative consumes this layer for those downstream
+decisions. Exergy Factor is the simple public acquisition and calculator
+surface over the same reference data.
 
 ## Contributing, Citation, and License
 

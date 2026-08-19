@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "quantity-and-quality"
-version = "0.12.0"
+version = "0.13.0"
 description = "Calculate stream quantity, Exergy Factor, accessible exergy, and Applied Exergy at end use."
 readme = "README.md"
 requires-python = ">=3.9"

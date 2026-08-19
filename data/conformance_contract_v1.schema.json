@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/cdimurro/quantity-and-quality/main/data/conformance_contract_v1.schema.json",
+  "title": "Cross-product exergy conformance contract",
+  "type": "object",
+  "required": ["schema_version", "contract_version", "canonical_project", "reference_data", "constants", "rules", "sources", "valid_cases", "invalid_cases"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "schema_version": {"const": "exergy_conformance_contract_v1"},
+    "contract_version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"},
+    "canonical_project": {"const": "quantity-and-quality"},
+    "canonical_project_version": {"type": "string"},
+    "published_at": {"type": "string", "format": "date"},
+    "reference_data": {
+      "type": "object",
+      "required": ["path", "sha256", "hash_basis", "record_count"],
+      "properties": {
+        "path": {"type": "string"},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "hash_basis": {"const": "utf8_text_with_lf_line_endings"},
+        "record_count": {"type": "integer", "minimum": 1}
+      },
+      "additionalProperties": false
+    },
+    "constants": {"type": "object", "additionalProperties": {"type": "number"}},
+    "rules": {"type": "object", "additionalProperties": {"type": "string"}},
+    "sources": {"type": "array", "minItems": 1, "items": {"type": "object"}},
+    "valid_cases": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/validCase"}},
+    "invalid_cases": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/invalidCase"}}
+  },
+  "$defs": {
+    "baseCase": {
+      "type": "object",
+      "required": ["id", "operation", "inputs", "implementations"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z0-9-]+$"},
+        "operation": {"type": "string"},
+        "inputs": {"type": "object"},
+        "implementations": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["quantity-and-quality", "exergy-imperative", "exergy-factor-browser"]}},
+        "note": {"type": "string"}
+      }
+    },
+    "validCase": {
+      "allOf": [
+        {"$ref": "#/$defs/baseCase"},
+        {"type": "object", "required": ["expected"], "properties": {"expected": {}, "absolute_tolerance": {"type": "number", "minimum": 0}}}
+      ]
+    },
+    "invalidCase": {
+      "allOf": [
+        {"$ref": "#/$defs/baseCase"},
+        {"type": "object", "required": ["expected_error"], "properties": {"expected_error": {"const": "domain_error"}}}
+      ]
+    }
+  }
+}

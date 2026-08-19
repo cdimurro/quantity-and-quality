@@ -1,6 +1,6 @@
 """Quantity plus Exergy Factor reporting helpers."""
 
-__version__ = "0.12.0"
+__version__ = "0.13.0"
 
 from .accounting import (
     ENERGY_ACCOUNTING_METHODS,
@@ -56,7 +56,14 @@ from .clean import (
     steam_saturation_temperature_c,
     write_clean_records,
 )
+from .conformance import (
+    CONFORMANCE_SCHEMA_VERSION,
+    conformance_contract_sha256,
+    load_conformance_contract,
+    reference_data_sha256,
+)
 from .core import (
+    T_SUN_K,
     EnergyReport,
     NotationVerification,
     ParsedNotation,
@@ -241,6 +248,7 @@ __all__ = [
     "ENERGY_ACCOUNTING_REQUEST_SCHEMA_ID",
     "DISTINGUISHABILITY_SCHEMA_VERSION",
     "COMMON_NOTATION_EXAMPLES",
+    "CONFORMANCE_SCHEMA_VERSION",
     "CORE_CARRIER_REGISTRY",
     "CARRIER_REGISTRY_VERSION",
     "EnergyReport",
@@ -265,6 +273,7 @@ __all__ = [
     "SCENARIO_SCHEMA_VERSION",
     "ReferenceContext",
     "ReferenceEnvironment",
+    "T_SUN_K",
     "STANDARD_INTEGRATION_POINTS",
     "AnnotatedRecord",
     "ValidationIssue",
@@ -287,6 +296,7 @@ __all__ = [
     "clean_summary",
     "clean_url",
     "compare",
+    "conformance_contract_sha256",
     "conformance_issues",
     "convert_energy",
     "convert_power",
@@ -320,6 +330,7 @@ __all__ = [
     "list_carrier_registry",
     "list_fidelity_tiers",
     "load_reference_examples",
+    "load_conformance_contract",
     "lookup",
     "load_any",
     "load_csv",
@@ -331,6 +342,7 @@ __all__ = [
     "registry_as_dict",
     "report_from_notation",
     "report",
+    "reference_data_sha256",
     "solar",
     "solar_exergy_rate",
     "source_temperature_for_fx_c",

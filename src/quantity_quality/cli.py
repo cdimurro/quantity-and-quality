@@ -283,6 +283,11 @@ def build_parser() -> argparse.ArgumentParser:
         default="",
         help="Optional synchronous browser data bundle loaded before script.js.",
     )
+    export_web.add_argument(
+        "--contract-output",
+        default="",
+        help="Optional copy of the versioned cross-product conformance contract.",
+    )
     export_web.set_defaults(func=cmd_export_web_data)
 
     serve_api = subparsers.add_parser(
@@ -653,10 +658,16 @@ def cmd_account(args: argparse.Namespace) -> int:
 
 
 def cmd_export_web_data(args: argparse.Namespace) -> int:
-    payload = write_web_data(args.output, js_output=args.js_output or None)
+    payload = write_web_data(
+        args.output,
+        js_output=args.js_output or None,
+        conformance_output=args.contract_output or None,
+    )
     print(f"wrote: {args.output}")
     if args.js_output:
         print(f"wrote: {args.js_output}")
+    if args.contract_output:
+        print(f"wrote: {args.contract_output}")
     print(f"schema: {payload['schema_version']}")
     print(f"presets: {len(payload['presets'])}")
     return 0

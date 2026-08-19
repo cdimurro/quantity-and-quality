@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.13.0 - 2026-08-18 - Cross-product conformance and web contracts
+
+### Added
+
+- A versioned, schema-validated conformance contract for shared thermal,
+  cooling, sensible-heat, Petela, accessible-exergy, weighted-factor, and
+  notation behavior across both Python packages and the browser calculator.
+- Public contract and reference-data loaders with SHA-256 fingerprints.
+- Web exports now include source package version, reference-data hash, and
+  conformance-contract hash, and can emit the canonical contract for consumers.
+
+### Safety and accuracy
+
+- Both 20 °C and 25 °C Petela cases declare the reference environment
+  explicitly, preventing user-facing defaults from becoming silent numerical
+  disagreements.
+- Valid cases, tolerances, invalid-input behavior, notation, schema structure,
+  reference-data revision, and record count are enforced in CI.
+
 ## 0.12.0 - Fields, plasma, and nuclear reactions
 
 ### Added
