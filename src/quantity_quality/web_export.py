@@ -4,6 +4,11 @@ import json
 from pathlib import Path
 from typing import Iterable, Mapping, Optional, Union
 
+from .conformance import (
+    conformance_contract_sha256,
+    load_conformance_contract,
+    reference_data_sha256,
+)
 from .reference import extract_temperature_context, load_reference_examples
 from .registry import registry_as_dict
 from .tiers import tiers_as_dict
@@ -67,6 +72,12 @@ def build_web_data(*, records: Optional[Iterable[Mapping[str, object]]] = None) 
     return {
         "schema_version": WEB_DATA_SCHEMA_VERSION,
         "source": "quantity-quality bundled reference_examples.json",
+        "source_version": "quantity-and-quality@0.13.0",
+        "source_sha256": reference_data_sha256(),
+        "conformance_contract": {
+            "schema_version": "exergy_conformance_contract_v1",
+            "sha256": conformance_contract_sha256(),
+        },
         "presets": presets,
         "carrier_registry": registry_as_dict(),
         "fidelity_tiers": tiers_as_dict(),
@@ -77,9 +88,10 @@ def write_web_data(
     output: Union[str, Path],
     *,
     js_output: Optional[Union[str, Path]] = None,
+    conformance_output: Optional[Union[str, Path]] = None,
     variable_name: str = "EXERGY_FACTOR_REFERENCE_DATA",
 ) -> dict:
-    """Write web reference JSON and optionally a synchronous browser data bundle."""
+    """Write web reference JSON, browser bundle, and canonical contract copy."""
 
     data = build_web_data()
     output_path = Path(output)
@@ -90,6 +102,14 @@ def write_web_data(
         js_path = Path(js_output)
         js_path.parent.mkdir(parents=True, exist_ok=True)
         js_path.write_text(_browser_bundle(data, variable_name=variable_name), encoding="utf-8")
+
+    if conformance_output is not None:
+        conformance_path = Path(conformance_output)
+        conformance_path.parent.mkdir(parents=True, exist_ok=True)
+        conformance_path.write_text(
+            json.dumps(load_conformance_contract(), indent=2) + "\n",
+            encoding="utf-8",
+        )
 
     return data
 

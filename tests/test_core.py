@@ -336,10 +336,19 @@ def test_web_export_uses_canonical_reference_values(tmp_path):
 
     output = tmp_path / "reference_examples.json"
     js_output = tmp_path / "reference_examples.js"
-    write_web_data(output, js_output=js_output)
+    contract_output = tmp_path / "conformance_contract_v1.json"
+    payload = write_web_data(
+        output,
+        js_output=js_output,
+        conformance_output=contract_output,
+    )
     assert '"naturalGasHhv"' in output.read_text(encoding="utf-8")
+    assert payload["source_version"] == f"quantity-and-quality@{qq.__version__}"
     assert js_output.read_text(encoding="utf-8").startswith(
         "window.EXERGY_FACTOR_REFERENCE_DATA = "
+    )
+    assert json.loads(contract_output.read_text(encoding="utf-8")) == json.loads(
+        Path("data/conformance_contract_v1.json").read_text(encoding="utf-8")
     )
 
 
@@ -878,7 +887,7 @@ def test_capabilities_only_claim_verification_the_library_can_perform():
         "thermal.carnot.constant_temperature.v1"
     )
     assert thermal(1, source_c=80, sink_c=20).as_dict()["carrier_registry_version"] == "0.3"
-    assert qq.__version__ == "0.12.0"
+    assert qq.__version__ == "0.13.0"
 
 
 def test_stream_calculator_meets_users_at_quantity_or_physical_inputs():

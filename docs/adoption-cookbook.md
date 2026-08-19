@@ -194,6 +194,13 @@ python -m pip install "quantity-and-quality[api]"
 quantity-quality serve-api
 ```
 
+The hosted key request contract requires explicit acceptance of the published
+[API Terms of Use](https://exergyfactor.com/terms.html):
+
+```json
+{"email": "you@example.com", "accept_terms": true}
+```
+
 Open <http://127.0.0.1:8000/docs> for interactive documentation. The main agent
 and application routes are:
 

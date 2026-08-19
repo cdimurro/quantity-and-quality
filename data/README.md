@@ -17,6 +17,8 @@ quantity-quality annotate examples/adoption_records.csv --output runtime/annotat
 - `quantity_quality_record.schema.json` — input/output JSON Schema.
 - `stream_calculation_request.schema.json` — unified Python/CLI/HTTP/agent request Schema.
 - `energy_accounting_request.schema.json` — primary-secondary-final-useful-Applied Exergy request Schema.
+- `conformance_contract_v1.json` — versioned shared physics, notation, tolerance, invalid-input, and reference-revision fixtures.
+- `conformance_contract_v1.schema.json` — JSON Schema for that cross-product contract.
 
 ## Scope and limitations
 
@@ -159,11 +161,13 @@ The static browser calculator consumes a generated subset of this database:
 ```bash
 quantity-quality export-web-data \
   --output ../exergy-factor/data/reference_examples.json \
-  --js-output ../exergy-factor/data/reference_examples.js
+  --js-output ../exergy-factor/data/reference_examples.js \
+  --contract-output ../exergy-factor/data/conformance_contract_v1.json
 ```
 
-The synchronous JavaScript bundle and JSON export keep the website and Python
-package aligned to the same canonical records.
+The synchronous JavaScript bundle and JSON export include the canonical package
+version, reference-data SHA-256, and conformance-contract SHA-256. The website
+CI regenerates all three exports and rejects byte-level drift.
 
 ## Contribution standard
 
