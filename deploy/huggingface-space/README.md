@@ -21,4 +21,3 @@ kernel used by [exergyfactor.com](https://www.exergyfactor.com/).
 The public-beta deployment does not require an API key. Results retain the
 package's units, reference conditions, basis, boundary, Fidelity Tier,
 assumptions, and warnings.
-
