@@ -278,17 +278,21 @@ GET  /v1/accounting/schema
 POST /v1/account
 ```
 
-Request a hosted key at [exergyfactor.com](https://exergyfactor.com/api-key.html)
-or use the endpoint directly. Terms acceptance is a required request field:
+The public Exergy Factor beta API is keyless and hosted separately from this
+package. Use the free service directly:
 
 ```bash
-curl https://api.exergyfactor.com/v1/api-keys/request \
+curl https://exergy-factor-api.onrender.com/v1/health
+
+curl https://exergy-factor-api.onrender.com/v1/calculate \
   -H "Content-Type: application/json" \
-  -d '{"email":"you@example.com","accept_terms":true}'
+  -d '{"stream_type":"heat","quantity":1,"unit":"MWh_th","source_c":80,"sink_c":20}'
 ```
 
-The applicable hosted-service terms are published at
-[exergyfactor.com/terms.html](https://exergyfactor.com/terms.html).
+The hosted-service terms and current availability notes are published at
+[exergyfactor.com/terms.html](https://exergyfactor.com/terms.html). Free Render
+instances may sleep after inactivity. For production or private workloads,
+run the optional API locally or deploy the same container under your control.
 
 Open <http://127.0.0.1:8000/docs> for interactive API documentation. Invalid
 requests return stable error codes and identify the field that needs attention.

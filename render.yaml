@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: exergy-factor-api
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    dockerfilePath: ./deploy/huggingface-space/Dockerfile
+    dockerContext: ./deploy/huggingface-space
+    healthCheckPath: /v1/health
+    autoDeploy: true
+    envVars:
+      - key: QQ_API_CORS_ORIGINS
+        value: https://exergyfactor.com,https://www.exergyfactor.com
