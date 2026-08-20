@@ -31,8 +31,13 @@ will build the Docker image from this directory and expose the health check at
 `/v1/health`. Free instances may sleep after inactivity and are intended for
 hobby or preview use; the calculator remains available without the hosted API.
 
-The resulting default URL is:
+After a successful deployment, Render assigns the service a URL based on the
+service name. The expected URL is:
 
 ```text
 https://exergy-factor-api.onrender.com/v1
 ```
+
+This URL is not live merely because the Blueprint is committed; it becomes
+available only after a Render workspace connects the repository and deploys the
+Free web service.
