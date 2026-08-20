@@ -12,7 +12,7 @@ ENV HOME=/home/user \
 WORKDIR /home/user/app
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir "quantity-and-quality[api]==0.13.0"
+    && python -m pip install --no-cache-dir "quantity-and-quality[api]==0.13.1"
 
 COPY --chown=user app.py /home/user/app/app.py
 
