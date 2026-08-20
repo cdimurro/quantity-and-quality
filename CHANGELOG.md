@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.1 - 2026-08-20 - Hosted API documentation correction
+
+### Documentation
+
+- Clarify that the public Exergy Factor API is a keyless beta deployment
+  whose Render service must be connected and deployed before its URL is live.
+- Replace the retired hosted-key request example with a local API smoke-test
+  example so the published package does not direct users to an unavailable
+  endpoint.
+
 ## 0.13.0 - 2026-08-18 - Cross-product conformance and web contracts
 
 ### Added

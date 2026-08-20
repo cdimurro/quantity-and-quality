@@ -194,11 +194,16 @@ python -m pip install "quantity-and-quality[api]"
 quantity-quality serve-api
 ```
 
-The hosted key request contract requires explicit acceptance of the published
-[API Terms of Use](https://exergyfactor.com/terms.html):
+The public Exergy Factor beta is keyless. The free Render service is not live
+until the repository's `render.yaml` Blueprint is connected to a Render
+workspace and deployed. Until then, the local service is the reliable smoke
+test:
 
-```json
-{"email": "you@example.com", "accept_terms": true}
+```bash
+curl http://127.0.0.1:8000/v1/health
+curl http://127.0.0.1:8000/v1/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"stream_type":"heat","quantity":1,"unit":"MWh_th","source_c":80,"sink_c":20}'
 ```
 
 Open <http://127.0.0.1:8000/docs> for interactive documentation. The main agent
@@ -212,7 +217,8 @@ GET  /v1/accounting/schema
 POST /v1/account
 ```
 
-Set `QQ_API_REQUIRE_KEY=1` when application-managed API keys are needed.
+Set `QQ_API_REQUIRE_KEY=1` when application-managed API keys are needed in a
+deployment you control; the public beta intentionally leaves this disabled.
 Production deployments should add TLS, persistent backed-up storage, working
 SMTP delivery, proxy-level rate limits, logging, monitoring, and an explicit
 `QQ_API_CORS_ORIGINS` list.

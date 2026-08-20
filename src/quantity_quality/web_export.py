@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 from typing import Iterable, Mapping, Optional, Union
 
+from . import __version__ as PACKAGE_VERSION
 from .conformance import (
     conformance_contract_sha256,
     load_conformance_contract,
@@ -72,7 +73,7 @@ def build_web_data(*, records: Optional[Iterable[Mapping[str, object]]] = None) 
     return {
         "schema_version": WEB_DATA_SCHEMA_VERSION,
         "source": "quantity-quality bundled reference_examples.json",
-        "source_version": "quantity-and-quality@0.13.0",
+        "source_version": f"quantity-and-quality@{PACKAGE_VERSION}",
         "source_sha256": reference_data_sha256(),
         "conformance_contract": {
             "schema_version": "exergy_conformance_contract_v1",
