@@ -23,7 +23,7 @@ The public-beta deployment does not require an API key. Results retain the
 package's units, reference conditions, basis, boundary, Fidelity Tier,
 assumptions, and warnings.
 
-## Free Render deployment
+## Render deployment
 
 The repository root contains a `render.yaml` Blueprint for a free Render web
 service. Connect this repository in Render with **New → Blueprint**, review the

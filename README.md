@@ -306,14 +306,14 @@ deploy the same container under your control.
 Open <http://127.0.0.1:8000/docs> for interactive API documentation. Invalid
 requests return stable error codes and identify the field that needs attention.
 
-### Free hosted API deployment
+### Hosted API deployment
 
-The repository includes [`render.yaml`](render.yaml) for a free Render web
+The repository includes [`render.yaml`](render.yaml) for the Render web
 service. It serves a public, keyless API endpoint. Connect this repository in
 Render, apply the blueprint, add `api.exergyfactor.com` as a custom domain, and
 point the `api` CNAME at the target Render provides.
 
-Free hosting is suitable for a low-volume public service and has no durable
+The hosted service is suitable for low-volume public use and has no durable
 local filesystem. Do not treat it as a high-availability or high-volume
 production service without adding durable storage and monitoring.
 
