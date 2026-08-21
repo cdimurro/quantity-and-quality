@@ -1,5 +1,6 @@
 import quantity_quality as qq
 
+# A supplied factor with no carrier or reference context uses the short form.
 record = qq.report(1, "MWh", fx=0.73)
 print(record.notation)
 print(record.capabilities)

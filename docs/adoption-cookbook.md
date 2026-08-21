@@ -146,8 +146,9 @@ The stages have deliberately different meanings:
 - Applied Exergy is the exergy that crosses from the final device into the task;
 - the energy service is the desired outcome in a non-energy unit.
 
-For a heat pump, `3 MWh_th` of useful heat at `fx = 0.064` contains
-`0.192 MWh_ex` of Applied Exergy. It can come from `1 MWh_e` of final energy
+For a heat pump, `3 MWh_th, fx = 0.064 [Th = 40 °C, T0 = 20 °C]` of useful heat
+contains `0.192 MWh_ex` of Applied Exergy. It can come from `1 MWh_e, fx = 1.0`
+of final energy
 without violating conservation: the additional heat comes from the environment,
 while the Applied Exergy remains below the final electrical exergy.
 
@@ -219,8 +220,9 @@ POST /v1/account
 
 Set `QQ_API_REQUIRE_KEY=1` when application-managed API keys are needed in a
 deployment you control; the public beta intentionally leaves this disabled.
-Production deployments should add TLS, persistent backed-up storage, working
-SMTP delivery, proxy-level rate limits, logging, monitoring, and an explicit
+The public beta is keyless. Production deployments should add TLS,
+persistent backed-up storage, working SMTP delivery, proxy-level rate limits,
+logging, monitoring, and an explicit
 `QQ_API_CORS_ORIGINS` list.
 
 ## 11. Look Up A Reference Example

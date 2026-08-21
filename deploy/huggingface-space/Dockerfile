@@ -7,12 +7,15 @@ ENV HOME=/home/user \
     PATH=/home/user/.local/bin:$PATH \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    QQ_API_CORS_ORIGINS=https://exergyfactor.com,https://www.exergyfactor.com
+    QQ_API_CORS_ORIGINS=https://exergyfactor.com,https://www.exergyfactor.com \
+    QQ_API_REQUIRE_KEY=0 \
+    QQ_MCP_HTTP_ENABLED=1
 
 WORKDIR /home/user/app
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
-    && python -m pip install --no-cache-dir "quantity-and-quality[api]==0.13.1"
+    && python -m pip install --no-cache-dir \
+      "quantity-and-quality[api,mcp,fluids] @ git+https://github.com/cdimurro/quantity-and-quality.git@main"
 
 COPY --chown=user app.py /home/user/app/app.py
 

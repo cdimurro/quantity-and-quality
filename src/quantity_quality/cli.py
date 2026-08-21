@@ -66,7 +66,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=f"%(prog)s {_package_version()}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    report = subparsers.add_parser("report", help="Create one report: 1 MWh, fx = 0.73.")
+    report = subparsers.add_parser(
+        "report", help="Create one short-form report: 1 MWh_th, fx = 0.730."
+    )
     report.add_argument("--quantity", type=float, required=True)
     report.add_argument("--unit", required=True)
     report.add_argument("--fx", "--exergy-factor", dest="exergy_factor", type=float, required=True)
@@ -75,7 +77,7 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     report.set_defaults(func=cmd_report)
 
-    parse = subparsers.add_parser("parse", help="Parse notation like '1 MWh, fx = 0.73'.")
+    parse = subparsers.add_parser("parse", help="Parse notation like '1 MWh_e, fx = 1.0'.")
     parse.add_argument("notation")
     parse.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     parse.set_defaults(func=cmd_parse)
@@ -194,7 +196,7 @@ def build_parser() -> argparse.ArgumentParser:
         "verify",
         help="Re-derive the Exergy Factor a record states, from its own declaration bracket.",
     )
-    verify.add_argument("notation", help='For example: "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"')
+    verify.add_argument("notation", help='For example: "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"')
     verify.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     verify.set_defaults(func=cmd_verify)
 
@@ -299,6 +301,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--reload", action="store_true", help="Reload on code changes during local development."
     )
     serve_api.set_defaults(func=cmd_serve_api)
+
+    mcp_server = subparsers.add_parser(
+        "mcp-server",
+        help="Run the local keyless Model Context Protocol server.",
+    )
+    mcp_server.add_argument(
+        "--transport",
+        choices=("stdio", "streamable-http"),
+        default="stdio",
+        help="MCP transport; stdio is the default for agent integrations.",
+    )
+    mcp_server.set_defaults(func=cmd_mcp_server)
 
     return parser
 
@@ -438,7 +452,8 @@ def cmd_examples(args: argparse.Namespace) -> int:
         _emit_json({"schema_version": REPORT_SCHEMA_VERSION, "records": COMMON_NOTATION_EXAMPLES})
     else:
         for record in COMMON_NOTATION_EXAMPLES:
-            print(f"{record['notation']:28}  {record['name']}  ({record['where_used']})")
+            notation = record.get("full_notation") or record["notation"]
+            print(f"{notation:64}  {record['name']}  ({record['where_used']})")
     return 0
 
 
@@ -685,6 +700,15 @@ def cmd_serve_api(args: argparse.Namespace) -> int:
         port=args.port,
         reload=args.reload,
     )
+    return 0
+
+
+def cmd_mcp_server(args: argparse.Namespace) -> int:
+    try:
+        from .mcp_server import run_mcp_server
+    except RuntimeError as exc:
+        raise SystemExit(str(exc)) from exc
+    run_mcp_server(transport=args.transport)
     return 0
 
 

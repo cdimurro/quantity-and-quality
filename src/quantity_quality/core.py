@@ -119,7 +119,7 @@ class PowerReport:
 
 @dataclass(frozen=True)
 class ParsedNotation:
-    """Parsed representation of `1 MWh, fx = 0.73` and of the full declaration.
+    """Parsed representation of `1 MWh_e, fx = 1.0` and of the full declaration.
 
     The declaration bracket fields are what make a record checkable by whoever
     receives it, so they survive parsing rather than being discarded as prose.
@@ -182,7 +182,7 @@ def format_energy_notation(
     *,
     precision: int = 3,
 ) -> str:
-    """Return the adoption notation, for example `1 MWh, fx = 0.73`."""
+    """Return short adoption notation, for example `1 MWh_th, fx = 0.730`."""
 
     quantity = float(quantity_or_power)
     _require_nonnegative(quantity, "quantity_or_power")
@@ -252,7 +252,7 @@ def _temp_to_c(value: Optional[str], unit: Optional[str]) -> Optional[float]:
 
 
 def parse_energy_notation(text: str) -> ParsedNotation:
-    """Parse `1 MWh, fx = 0.73` and `1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]`.
+    """Parse `1 MWh_e, fx = 1.0` and `1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]`.
 
     Both the short form and the full declaration round-trip. `°C` is accepted but
     not required, and a bracket temperature may state `K` or `F` explicitly.
@@ -261,8 +261,8 @@ def parse_energy_notation(text: str) -> ParsedNotation:
     match = _NOTATION_RE.match(text)
     if not match:
         raise ValueError(
-            "expected notation like '1 MWh, fx = 0.73' or "
-            "'1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]'"
+            "expected notation like '1 MWh_e, fx = 1.0' or "
+            "'1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]'"
         )
     quantity = float(match.group("quantity"))
     unit = match.group("unit").strip()
@@ -333,7 +333,7 @@ class NotationVerification:
 def verify_notation(text: str, *, tolerance: Optional[float] = None) -> NotationVerification:
     """Re-derive the Exergy Factor stated in a notation string, from its own bracket.
 
-    >>> print(verify_notation("1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"))
+    >>> print(verify_notation("1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"))
     fx = 1 - T0/Th = 1 - 293.15/353.15 = 0.170  [OK]
 
     A record without a declaration bracket is reported as not verifiable rather
@@ -350,8 +350,8 @@ def verify_notation(text: str, *, tolerance: Optional[float] = None) -> Notation
     match = _NOTATION_RE.match(text)
     if not match:
         raise ValueError(
-            "expected notation like '1 MWh, fx = 0.73' or "
-            "'1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]'"
+            "expected notation like '1 MWh_e, fx = 1.0' or "
+            "'1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]'"
         )
     parsed = parse_energy_notation(text)
     stated_text = match.group("factor")
@@ -428,7 +428,7 @@ def report_from_notation(
     context: Optional[ReferenceContext] = None,
     label: Optional[str] = None,
 ) -> EnergyReport:
-    """Build an EnergyReport from `1 MWh, fx = 0.73` style notation."""
+    """Build an EnergyReport from `1 MWh_th, fx = 0.730` style notation."""
 
     parsed = parse_energy_notation(text)
     return EnergyReport(

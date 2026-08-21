@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
+from contextlib import asynccontextmanager
 from typing import Any, Optional
 
 try:
     from fastapi import Depends, FastAPI, Header, HTTPException, Request
     from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.openapi.docs import get_swagger_ui_html
     from pydantic import BaseModel, Field
+    from starlette.responses import HTMLResponse
 except ImportError as exc:  # pragma: no cover - exercised only without API extra
     raise ImportError("API support requires: pip install quantity-and-quality[api]") from exc
 
@@ -357,6 +361,8 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="Exergy Factor API",
         version=REPORT_SCHEMA_VERSION,
+        docs_url=None,
+        redoc_url=None,
         description=(
             "Calculate and report energy quantity, Exergy Factor, and accessible exergy "
             "for individual streams, with optional end-use accounting through Applied Exergy."
@@ -372,15 +378,205 @@ def create_app() -> FastAPI:
             "url": "https://github.com/cdimurro/quantity-and-quality/blob/main/LICENSE",
         },
     )
+
+    @app.get("/docs", include_in_schema=False)
+    def docs() -> HTMLResponse:
+        """Serve the interactive API docs inside the Exergy Factor site shell."""
+
+        page = get_swagger_ui_html(
+            openapi_url=app.openapi_url or "/openapi.json",
+            title="Exergy Factor API · Docs",
+            swagger_ui_parameters={
+                "deepLinking": True,
+                "displayRequestDuration": True,
+                "docExpansion": "none",
+                "filter": True,
+                "defaultModelsExpandDepth": -1,
+                "showExtensions": False,
+                "showCommonExtensions": False,
+            },
+        )
+        html = page.body.decode("utf-8")
+        html = html.replace(
+            "</head>",
+            """
+            <style>
+              :root {
+                color-scheme: light;
+                --docs-ink: #17201d;
+                --docs-muted: #586761;
+                --docs-line: #cbd8d3;
+                --docs-paper: #f8faf7;
+                --docs-panel: #ffffff;
+                --docs-teal: #0d766f;
+                --docs-teal-deep: #0a4f4a;
+              }
+              * { box-sizing: border-box; }
+              body {
+                margin: 0;
+                background: var(--docs-paper);
+                color: var(--docs-ink);
+                font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+                  BlinkMacSystemFont, "Segoe UI", sans-serif;
+              }
+              .docs-header {
+                border-bottom: 1px solid rgba(23, 32, 29, 0.12);
+                background: rgba(248, 250, 247, 0.96);
+              }
+              .docs-header-inner {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 20px;
+                max-width: 1220px;
+                margin: 0 auto;
+                padding: 18px 28px;
+              }
+              .docs-brand {
+                display: inline-flex;
+                align-items: center;
+                gap: 12px;
+                color: var(--docs-ink);
+                font-size: 1.1rem;
+                font-weight: 800;
+                text-decoration: none;
+              }
+              .docs-mark {
+                width: 28px;
+                height: 28px;
+                border: 2px solid var(--docs-teal);
+                border-radius: 50%;
+                background:
+                  linear-gradient(90deg, transparent 46%, var(--docs-teal) 47%,
+                    var(--docs-teal) 53%, transparent 54%),
+                  linear-gradient(0deg, transparent 46%, #b66d12 47%, #b66d12 53%,
+                    transparent 54%);
+              }
+              .docs-header a:last-child {
+                color: var(--docs-teal-deep);
+                font-weight: 700;
+                text-decoration: none;
+              }
+              .docs-shell {
+                max-width: 1220px;
+                margin: 0 auto;
+                padding: 36px 28px 72px;
+              }
+              .docs-intro {
+                display: flex;
+                align-items: end;
+                justify-content: space-between;
+                gap: 24px;
+                margin-bottom: 24px;
+              }
+              .docs-intro h1 {
+                margin: 0 0 8px;
+                color: var(--docs-ink);
+                font-size: clamp(2rem, 4vw, 3.2rem);
+                line-height: 1.05;
+              }
+              .docs-intro p { margin: 0; color: var(--docs-muted); }
+              .docs-base-url {
+                padding: 10px 12px;
+                border: 1px solid var(--docs-line);
+                border-radius: 8px;
+                background: var(--docs-panel);
+                color: var(--docs-teal-deep);
+                font: 700 0.86rem ui-monospace, SFMono-Regular, Menlo, Consolas,
+                  monospace;
+                white-space: nowrap;
+              }
+              #swagger-ui {
+                padding: 24px;
+                border: 1px solid var(--docs-line);
+                border-radius: 12px;
+                background: var(--docs-panel);
+                box-shadow: 0 20px 50px rgba(23, 32, 29, 0.08);
+              }
+              .swagger-ui { color: var(--docs-ink); font-family: inherit; }
+              .swagger-ui .topbar { display: none; }
+              .swagger-ui .info { margin: 0 0 18px; }
+              .swagger-ui .info .title { display: none; }
+              .swagger-ui .info p, .swagger-ui .info li { color: var(--docs-muted); }
+              .swagger-ui .opblock-tag {
+                margin: 18px 0 8px;
+                padding: 10px 0;
+                border-bottom: 1px solid var(--docs-line);
+                color: var(--docs-teal-deep);
+                font-size: 1.1rem;
+              }
+              .swagger-ui .opblock {
+                border-color: var(--docs-line);
+                border-radius: 8px;
+                box-shadow: none;
+              }
+              .swagger-ui .opblock .opblock-summary { border-color: var(--docs-line); }
+              .swagger-ui .opblock.opblock-get { background: rgba(49, 95, 151, 0.05); }
+              .swagger-ui .opblock.opblock-post { background: rgba(13, 118, 111, 0.06); }
+              .swagger-ui .opblock.opblock-get .opblock-summary-method { background: #315f97; }
+              .swagger-ui .opblock.opblock-post .opblock-summary-method { background: var(--docs-teal); }
+              .swagger-ui .btn.execute {
+                border-color: var(--docs-teal-deep);
+                background: var(--docs-teal-deep);
+                color: #fff;
+              }
+              .swagger-ui input[type=text], .swagger-ui textarea, .swagger-ui select {
+                border-color: var(--docs-line);
+                border-radius: 6px;
+              }
+              @media (max-width: 720px) {
+                .docs-header-inner, .docs-shell { padding-left: 16px; padding-right: 16px; }
+                .docs-intro { align-items: start; flex-direction: column; }
+                .docs-base-url { white-space: normal; overflow-wrap: anywhere; }
+                #swagger-ui { padding: 12px; }
+              }
+            </style>
+            </head>""",
+        )
+        html = html.replace(
+            "<body>",
+            """
+            <body>
+              <header class="docs-header">
+                <div class="docs-header-inner">
+                  <a class="docs-brand" href="https://exergyfactor.com">
+                    <span class="docs-mark" aria-hidden="true"></span>
+                    <span>Exergy Factor API</span>
+                  </a>
+                  <a href="https://exergyfactor.com">Back to calculator</a>
+                </div>
+              </header>
+              <main class="docs-shell">
+                <div class="docs-intro">
+                  <div>
+                    <h1>API documentation</h1>
+                    <p>Explore the public, keyless quantity and quality calculation contract.</p>
+                  </div>
+                  <code class="docs-base-url">https://api.exergyfactor.com/v1</code>
+                </div>
+            """,
+        )
+        html = html.replace("</body>", "</main></body>")
+        return HTMLResponse(content=html)
+
     app.add_middleware(
         CORSMiddleware,
         allow_origins=_cors_origins(),
         allow_credentials=False,
         allow_methods=["GET", "POST", "OPTIONS"],
-        allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+        allow_headers=[
+            "Accept",
+            "Authorization",
+            "Content-Type",
+            "Last-Event-ID",
+            "MCP-Protocol-Version",
+            "Mcp-Session-Id",
+            "X-API-Key",
+        ],
+        expose_headers=["Mcp-Session-Id"],
     )
 
-    @app.get("/health")
+    @app.get("/health", include_in_schema=False)
     def health() -> dict:
         return {
             "ok": True,
@@ -393,29 +589,29 @@ def create_app() -> FastAPI:
     def v1_health() -> dict:
         return health()
 
-    @app.get("/v1/registry")
+    @app.get("/v1/registry", include_in_schema=False)
     def registry() -> dict:
         return {"schema_version": REPORT_SCHEMA_VERSION, "records": registry_as_dict()}
 
-    @app.get("/v1/tiers")
+    @app.get("/v1/tiers", include_in_schema=False)
     def tiers() -> dict:
         return {"schema_version": REPORT_SCHEMA_VERSION, "records": tiers_as_dict()}
 
-    @app.get("/v1/reference-examples")
+    @app.get("/v1/reference-examples", include_in_schema=False)
     def reference_examples(category: Optional[str] = None, text: Optional[str] = None) -> dict:
         return {
             "schema_version": REPORT_SCHEMA_VERSION,
             "records": filter_reference_examples(category=category, text=text),
         }
 
-    @app.get("/v1/reference-examples/{reference_id}")
+    @app.get("/v1/reference-examples/{reference_id}", include_in_schema=False)
     def reference_example(reference_id: str) -> dict:
         return {
             "schema_version": REPORT_SCHEMA_VERSION,
             "record": _or_404(lambda: get_reference_example(reference_id)),
         }
 
-    @app.get("/v1/schema")
+    @app.get("/v1/schema", include_in_schema=False)
     def record_schema() -> dict:
         return load_record_schema()
 
@@ -443,7 +639,7 @@ def create_app() -> FastAPI:
         )
         return result
 
-    @app.post("/v1/report", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/report", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def report(request: ReportRequest) -> dict:
         factor = request.exergy_factor if request.exergy_factor is not None else request.fx
         if factor is None:
@@ -462,7 +658,7 @@ def create_app() -> FastAPI:
         )
         return _record_response(record.as_dict())
 
-    @app.post("/v1/parse", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/parse", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def parse(request: ParseRequest) -> dict:
         record = _or_400(
             lambda: qq.from_notation(
@@ -476,17 +672,17 @@ def create_app() -> FastAPI:
         )
         return _record_response(record.as_dict())
 
-    @app.post("/v1/calc/thermal", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/calc/thermal", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def calc_thermal(request: ThermalRequest) -> dict:
         record = _or_400(lambda: qq.thermal(**request.model_dump()))
         return _record_response(record.as_dict())
 
-    @app.post("/v1/calc/cooling", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/calc/cooling", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def calc_cooling(request: CoolingRequest) -> dict:
         record = _or_400(lambda: qq.cooling(**request.model_dump()))
         return _record_response(record.as_dict())
 
-    @app.post("/v1/calc/solar", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/calc/solar", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def calc_solar(request: SolarRequest) -> dict:
         payload = request.model_dump()
         irradiance = payload.pop("irradiance_w_m2")
@@ -498,7 +694,7 @@ def create_app() -> FastAPI:
             )
         return _record_response(record)
 
-    @app.post("/v1/calc/fuel", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/calc/fuel", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def calc_fuel(request: FuelRequest) -> dict:
         record = _or_400(
             lambda: qq.fuel(
@@ -511,16 +707,16 @@ def create_app() -> FastAPI:
         )
         return _record_response(record.as_dict())
 
-    @app.post("/v1/calc/fission", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/calc/fission", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def calc_fission(request: FissionRequest) -> dict:
         record = _or_400(lambda: qq.fission(**request.model_dump()))
         return _record_response(record.as_dict())
 
-    @app.post("/v1/compare", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/compare", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def compare(request: ScenarioRequest) -> dict:
         return _or_400(lambda: compare_scenario(request.scenario))
 
-    @app.post("/v1/validate", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/validate", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def validate(request: ValidateRequest) -> dict:
         cleaned = _or_400(
             lambda: clean_records(
@@ -536,11 +732,11 @@ def create_app() -> FastAPI:
         summary["records"] = cleaned
         return summary
 
-    @app.post("/v1/export/web-data", dependencies=[Depends(_require_api_key)])
+    @app.post("/v1/export/web-data", include_in_schema=False, dependencies=[Depends(_require_api_key)])
     def export_web_data() -> dict:
         return build_web_data()
 
-    @app.post("/v1/api-keys/request")
+    @app.post("/v1/api-keys/request", include_in_schema=False)
     def request_api_key(request: ApiKeyRequest) -> dict:
         if not request.accept_terms:
             raise HTTPException(
@@ -558,7 +754,7 @@ def create_app() -> FastAPI:
         )
         return result.public_dict(include_key=return_keys_in_response())
 
-    @app.post("/v1/api-keys/revoke")
+    @app.post("/v1/api-keys/revoke", include_in_schema=False)
     def revoke_key(
         x_api_key: Optional[str] = Header(default=None, alias="X-API-Key"),
         authorization: Optional[str] = Header(default=None),
@@ -567,6 +763,27 @@ def create_app() -> FastAPI:
         if not candidate or not revoke_api_key(candidate):
             raise HTTPException(status_code=401, detail="valid API key required")
         return {"ok": True, "detail": "API key revoked"}
+
+    if _truthy(os.environ.get("QQ_MCP_HTTP_ENABLED", "0")):
+        try:
+            from .mcp_server import create_mcp_server
+        except RuntimeError as exc:
+            raise RuntimeError("QQ_MCP_HTTP_ENABLED=1 requires quantity-and-quality[mcp]") from exc
+        mcp_app = create_mcp_server(
+            streamable_http_path="/",
+            stateless_http=True,
+            host="0.0.0.0",
+        ).streamable_http_app()
+        app.mount("/mcp", mcp_app)
+        previous_lifespan = app.router.lifespan_context
+
+        @asynccontextmanager
+        async def combined_lifespan(application):
+            async with previous_lifespan(application):
+                async with mcp_app.router.lifespan_context(mcp_app):
+                    yield
+
+        app.router.lifespan_context = combined_lifespan
 
     return app
 
@@ -615,15 +832,16 @@ def _or_404(fn):
 
 
 def _cors_origins() -> list[str]:
-    raw = (
-        __import__("os")
-        .environ.get(
-            "QQ_API_CORS_ORIGINS",
-            "https://exergyfactor.com,https://www.exergyfactor.com,http://localhost:8765,http://127.0.0.1:8765",
-        )
-        .strip()
+    raw = os.environ.get(
+        "QQ_API_CORS_ORIGINS",
+        "https://exergyfactor.com,https://www.exergyfactor.com,http://localhost:8765,http://127.0.0.1:8765",
     )
+    raw = raw.strip()
     return [item.strip() for item in raw.split(",") if item.strip()]
+
+
+def _truthy(value: object) -> bool:
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
 
 app = create_app()

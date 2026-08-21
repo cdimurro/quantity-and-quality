@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import hashlib
+import hmac
 import os
 import re
 import secrets
@@ -126,6 +128,20 @@ def validate_api_key(api_key: str, *, db_path: Optional[Path] = None) -> bool:
 
     if not api_key:
         return False
+    if stateless_api_keys_enabled() and _valid_stateless_signature(api_key):
+        # Stateless keys are useful on free/ephemeral hosts: the signed token
+        # remains valid after a process restart even though the local SQLite
+        # filesystem may be discarded. If a local database is available, still
+        # honour an explicit revocation recorded there.
+        path = db_path or api_key_db_path()
+        if not path.exists():
+            return True
+        with closing(sqlite3.connect(path)) as connection, connection:
+            row = connection.execute(
+                "SELECT revoked_at FROM api_keys WHERE key_hash = ?",
+                (hash_api_key(api_key),),
+            ).fetchone()
+            return row is None or row[0] is None
     path = db_path or api_key_db_path()
     if not path.exists():
         return False
@@ -196,6 +212,12 @@ def api_keys_required() -> bool:
 
 def return_keys_in_response() -> bool:
     return _truthy(os.environ.get("QQ_API_KEY_RETURN_IN_RESPONSE", "0"))
+
+
+def stateless_api_keys_enabled() -> bool:
+    """Return whether signed keys may authenticate without durable storage."""
+
+    return _truthy(os.environ.get("QQ_API_KEY_STATELESS", "0"))
 
 
 def deliver_api_key(
@@ -282,7 +304,35 @@ Keep this key private. The API exposes the deterministic Quantity + Quality Pyth
 
 def _generate_api_key() -> str:
     prefix = os.environ.get("QQ_API_KEY_PREFIX", "qq_live").strip().strip("_") or "qq_live"
-    return f"{prefix}_{secrets.token_urlsafe(32)}"
+    token = f"{prefix}_{secrets.token_urlsafe(32)}"
+    if not stateless_api_keys_enabled():
+        return token
+    secret = _signing_secret()
+    signature = hmac.new(secret, token.encode("utf-8"), hashlib.sha256).digest()
+    encoded = base64.urlsafe_b64encode(signature).decode("ascii").rstrip("=")
+    return f"{token}.{encoded}"
+
+
+def _signing_secret() -> bytes:
+    secret = os.environ.get("QQ_API_KEY_PEPPER", "").strip()
+    if not secret:
+        raise RuntimeError("QQ_API_KEY_PEPPER is required when QQ_API_KEY_STATELESS=1")
+    return secret.encode("utf-8")
+
+
+def _valid_stateless_signature(api_key: str) -> bool:
+    try:
+        token, supplied = api_key.rsplit(".", 1)
+    except ValueError:
+        return False
+    if not token or not supplied:
+        return False
+    expected = hmac.new(_signing_secret(), token.encode("utf-8"), hashlib.sha256).digest()
+    try:
+        decoded = base64.urlsafe_b64decode(f"{supplied}===")
+    except Exception:
+        return False
+    return hmac.compare_digest(decoded, expected)
 
 
 def _init_db(path: Path) -> None:

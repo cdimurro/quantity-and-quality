@@ -42,6 +42,13 @@ Quantity and Quality adds the number that is usually missing:
 Here `fx` is the Exergy Factor: accessible useful-work potential per unit of
 energy. The example contains about `0.170 MWh_ex` relative to a 20 °C sink.
 
+The full notation is the standard whenever the carrier and quality context are
+known: `quantity typed_unit, fx = factor [declared context]`. The typed suffix
+is part of the meaning—`BTU_th` identifies thermal energy and `MWh_HHV_NG`
+identifies natural gas on an HHV denominator. If a source or reference context
+is unavailable, the short form (`quantity typed_unit, fx = factor`) remains
+valid but is not independently verifiable.
+
 The thermodynamics are established. This project makes them easy to apply in a
 calculator, spreadsheet, script, database, API, or AI-agent workflow.
 
@@ -79,6 +86,7 @@ Optional integrations are installed only when needed:
 ```bash
 python -m pip install "quantity-and-quality[scenario]"  # YAML scenarios
 python -m pip install "quantity-and-quality[api]"       # HTTP API
+python -m pip install "quantity-and-quality[mcp]"       # keyless MCP server
 python -m pip install "quantity-and-quality[fluids]"    # Real-fluid properties
 ```
 
@@ -241,12 +249,12 @@ Examples below use a 20 °C reference sink:
 
 | Stream | Conventional record | Quantity + quality |
 |---|---:|---:|
-| Electricity | `1 MWh` | `1 MWh, fx = 1.0` |
-| Heat at 150 °C | `1 MWh_th` | `1 MWh_th, fx = 0.307` |
-| Heat at 80 °C | `1 MWh_th` | `1 MWh_th, fx = 0.170` |
-| Heat at 40 °C | `1 MWh_th` | `1 MWh_th, fx = 0.064` |
-| Methane, HHV basis | `1 MWh_HHV` | `1 MWh_HHV, fx = 0.930` |
-| Hydrogen, HHV basis | `1 MWh_HHV` | `1 MWh_HHV, fx = 0.830` |
+| Electricity | `1 MWh_e` | `1 MWh_e, fx = 1.0` |
+| Heat at 150 °C | `1 MWh_th` | `1 MWh_th, fx = 0.307 [Th = 150 °C, T0 = 20 °C]` |
+| Heat at 80 °C | `1 MWh_th` | `1 MWh_th, fx = 0.170 [Th = 80 °C, T0 = 20 °C]` |
+| Heat at 40 °C | `1 MWh_th` | `1 MWh_th, fx = 0.064 [Th = 40 °C, T0 = 20 °C]` |
+| Methane, HHV basis | `1 MWh_HHV_CH4` | `1 MWh_HHV_CH4, fx = 0.930 [basis = HHV]` |
+| Hydrogen, HHV basis | `1 MWh_HHV_H2` | `1 MWh_HHV_H2, fx = 0.830 [basis = HHV]` |
 
 Equal energy quantities are not necessarily equal useful-work resources. This
 library calculates and reports that difference; downstream tools can decide how
@@ -300,6 +308,55 @@ deploy the same container under your control.
 
 Open <http://127.0.0.1:8000/docs> for interactive API documentation. Invalid
 requests return stable error codes and identify the field that needs attention.
+
+### Free hosted API deployment
+
+The repository includes [`render.yaml`](render.yaml) for a free Render web
+service. It serves a public, keyless API endpoint. Connect this repository in
+Render, apply the blueprint, add `api.exergyfactor.com` as a custom domain, and
+point the `api` CNAME at the target Render provides.
+
+Free hosting is suitable for a low-volume public preview; it can sleep when
+idle and has no durable local filesystem. Do not treat it as a high-availability
+or high-volume production service without adding durable storage and monitoring.
+
+### Keyless MCP server
+
+AI agents can use the deterministic library directly without an HTTP API key:
+
+```bash
+python -m pip install "quantity-and-quality[mcp]"  # Python 3.10+
+quantity-quality mcp-server
+```
+
+Configure an MCP client to start that command over stdio. For clients using
+`uv`, the equivalent is:
+
+```json
+{
+  "mcpServers": {
+    "quantity-and-quality": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "quantity-and-quality[mcp]",
+        "quantity-quality",
+        "mcp-server"
+      ]
+    }
+  }
+}
+```
+
+The server exposes stream calculation, end-use accounting, thermal and cooling
+calculators, capabilities, carrier registry, fidelity tiers, and reference
+examples. It runs locally, calls the package directly, and sends no calculation
+data to a hosted service.
+
+After the custom domain is attached, the free Render blueprint mounts the same
+keyless server at `https://api.exergyfactor.com/mcp/` using MCP streamable HTTP.
+Hosted MCP access is intentionally limited to deterministic calculations and
+reference data; the regular HTTP endpoints are also public during the beta.
 
 The packaged schemas are:
 

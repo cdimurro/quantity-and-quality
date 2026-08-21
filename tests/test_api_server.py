@@ -101,6 +101,27 @@ def test_api_public_metadata_and_calculation_without_key(monkeypatch, tmp_path):
     assert "exergy_mwh" not in statistical.json()["stages"]["primary"]
 
 
+def test_branded_interactive_docs_use_the_public_api_shell(monkeypatch):
+    monkeypatch.setenv("QQ_API_REQUIRE_KEY", "0")
+    with TestClient(create_app()) as client:
+        response = client.get("/docs")
+        openapi = client.get("/openapi.json")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/html")
+    assert 'class="docs-header"' in response.text
+    assert "https://api.exergyfactor.com/v1" in response.text
+    assert "swagger-ui-bundle.js" in response.text
+    assert openapi.status_code == 200
+    assert set(openapi.json()["paths"]) == {
+        "/v1/health",
+        "/v1/capabilities",
+        "/v1/calculate/schema",
+        "/v1/calculate",
+        "/v1/accounting/schema",
+        "/v1/account",
+    }
+
+
 def test_extended_physical_streams_use_the_shared_api_contract(monkeypatch, tmp_path):
     monkeypatch.setenv("QQ_API_REQUIRE_KEY", "0")
     monkeypatch.setenv("QQ_API_KEY_DB", str(tmp_path / "keys.sqlite3"))
@@ -233,6 +254,83 @@ def test_api_key_request_and_enforced_auth(monkeypatch, tmp_path):
         json={"quantity": 1, "fuel": "natural gas", "basis": "HHV"},
     )
     assert rejected.status_code == 401
+
+
+def test_stateless_api_keys_survive_ephemeral_restart(monkeypatch, tmp_path):
+    db_path = tmp_path / "keys.sqlite3"
+    monkeypatch.setenv("QQ_API_REQUIRE_KEY", "1")
+    monkeypatch.setenv("QQ_API_KEY_DB", str(db_path))
+    monkeypatch.setenv("QQ_API_KEY_PEPPER", "test-stateless-secret")
+    monkeypatch.setenv("QQ_API_KEY_STATELESS", "1")
+    monkeypatch.setenv("QQ_API_KEY_RETURN_IN_RESPONSE", "1")
+    monkeypatch.setenv("QQ_API_EMAIL_MODE", "disabled")
+    client = TestClient(create_app())
+
+    issued = client.post(
+        "/v1/api-keys/request",
+        json={"email": "stateless@example.com", "accept_terms": True},
+    )
+    assert issued.status_code == 200
+    api_key = issued.json()["api_key"]
+    assert "." in api_key
+
+    # A free host may discard its local filesystem while retaining its secret
+    # environment. Signature validation must keep the issued key usable.
+    db_path.unlink()
+    restarted = TestClient(create_app())
+    authenticated = restarted.post(
+        "/v1/calc/fuel",
+        headers={"X-API-Key": api_key},
+        json={"quantity": 1, "fuel": "natural gas", "basis": "HHV"},
+    )
+    assert authenticated.status_code == 200
+    assert (
+        restarted.post(
+            "/v1/calc/fuel",
+            headers={"X-API-Key": f"{api_key}x"},
+            json={"quantity": 1, "fuel": "natural gas", "basis": "HHV"},
+        ).status_code
+        == 401
+    )
+
+
+def test_optional_keyless_mcp_http_mount(monkeypatch):
+    monkeypatch.setenv("QQ_MCP_HTTP_ENABLED", "1")
+    with TestClient(create_app()) as client:
+        assert any(getattr(route, "path", "") == "/mcp" for route in client.app.routes)
+
+        initialize = client.post(
+            "/mcp/",
+            headers={
+                "Accept": "application/json, text/event-stream",
+                "Content-Type": "application/json",
+            },
+            json={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "initialize",
+                "params": {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "site-contract", "version": "1"},
+                },
+            },
+        )
+        assert initialize.status_code == 200
+        assert initialize.headers["content-type"].startswith("text/event-stream")
+        assert "Quantity and Quality" in initialize.text
+
+        preflight = client.options(
+            "/mcp/",
+            headers={
+                "Origin": "https://exergyfactor.com",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "accept,content-type,mcp-protocol-version",
+            },
+        )
+        assert preflight.status_code == 200
+        assert preflight.headers["access-control-allow-origin"] == "https://exergyfactor.com"
+        assert "MCP-Protocol-Version" in preflight.headers["access-control-allow-headers"]
 
 
 def test_api_validate_and_compare(monkeypatch, tmp_path):

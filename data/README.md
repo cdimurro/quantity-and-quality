@@ -93,10 +93,13 @@ The minimum direct record is:
 ```json
 {
   "quantity": 1,
-  "unit": "MWh",
-  "exergy_factor": 0.73
+  "unit": "MWh_e",
+  "exergy_factor": 1.0
 }
 ```
+
+The API still accepts a generic `MWh` with a supplied factor for legacy or
+unknown-carrier data, but publish a typed unit whenever the carrier is known.
 
 Auditable records should also declare the physical context used to calculate
 the factor:
@@ -122,14 +125,15 @@ from a rate into an energy quantity.
 
 ## Reporting and verification
 
-The compact notation is:
+The full notation is the standard when the carrier and quality context are
+known:
 
 ```text
-1 MWh, fx = 1.0
+1 MWh_e, fx = 1.0
 ```
 
-Thermal and other reference-dependent records should include enough context to
-recalculate the factor:
+Thermal and other reference-dependent records include the typed carrier and
+enough context to recalculate the factor:
 
 ```text
 1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]
@@ -147,7 +151,9 @@ quantity-quality verify "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"
 
 It exits nonzero if the declared temperatures disagree with the factor, so the
 check can gate a publication pipeline. A record with no declaration bracket is
-reported as not verifiable rather than wrong. Python clients can use
+reported as not verifiable rather than wrong. The short form remains useful when
+the reference context is unavailable, but it is not independently verifiable.
+Python clients can use
 `verify_notation()` and `parse_energy_notation()` for the same round trip.
 
 The canonical written form stays ASCII, though the parser also accepts `°C`,

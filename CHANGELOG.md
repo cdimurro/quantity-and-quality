@@ -310,7 +310,7 @@ good reasons.
 ## 0.6.0 - The Full Operational Notation
 
 The paper defines a completely specified stream declaration as
-`1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]`, and its value is that the recipient
+`1 MWh_th, fx = 0.170 [Th = 80°C, T0 = 20°C]`, and its value is that the recipient
 can re-derive the factor in one step. Three things had to be true for that to
 hold, and none of them were.
 

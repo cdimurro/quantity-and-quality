@@ -197,7 +197,24 @@ def test_reference_environment_uses_paper_default():
 
 def test_common_examples_have_20_records():
     assert len(COMMON_NOTATION_EXAMPLES) == 20
-    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "845 kWh, fx = 1.0"
+    assert COMMON_NOTATION_EXAMPLES[0]["notation"] == "845 kWh_e, fx = 1.0"
+    assert COMMON_NOTATION_EXAMPLES[0]["full_notation"] == "845 kWh_e, fx = 1.0"
+    assert (
+        COMMON_NOTATION_EXAMPLES[5]["full_notation"]
+        == "35000 BTU_th, fx = 0.064 [Th = 40 C, T0 = 20 C]"
+    )
+    assert (
+        COMMON_NOTATION_EXAMPLES[7]["full_notation"]
+        == "1.8 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"
+    )
+    assert (
+        COMMON_NOTATION_EXAMPLES[14]["full_notation"]
+        == "850 MMBtu_HHV_NG, fx = 0.930 [basis = HHV]"
+    )
+    assert (
+        COMMON_NOTATION_EXAMPLES[-1]["full_notation"]
+        == "900 kWh_cooling, fx = 0.082 [Tcold = 7 C, T0 = 30 C]"
+    )
 
 
 def test_annotate_record_from_reference_id():
@@ -475,7 +492,7 @@ def test_clean_sql_and_stream_helpers():
 #
 # The paper defines a completely specified stream declaration as
 #
-#     1 MWh, fx = 0.170 [Th = 80°C, T0 = 20°C]
+#     1 MWh_th, fx = 0.170 [Th = 80°C, T0 = 20°C]
 #
 # and its value is that the recipient can re-derive the factor in one step,
 # without trusting the sender:
@@ -736,7 +753,7 @@ def test_cli_verify_exit_code_can_gate_a_pipeline(capsys):
     # the temperatures printed beside them should fail a build, not be published.
     from quantity_quality.cli import main
 
-    assert main(["verify", "1 MWh, fx = 0.170 [Th = 80 C, T0 = 20 C]"]) == 0
+    assert main(["verify", "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"]) == 0
     assert main(["verify", "1 MWh_th, fx = 0.900 [Th = 80 C, T0 = 20 C]"]) == 1
     # An unverifiable record has not been contradicted, so it must not fail a build.
     assert main(["verify", "1 MWh, fx = 1.0"]) == 0
