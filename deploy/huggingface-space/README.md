@@ -16,7 +16,8 @@ kernel used by [exergyfactor.com](https://www.exergyfactor.com/).
 
 - Interactive OpenAPI documentation: `/docs`
 - Health check: `/v1/health`
-- API base path: `/v1`
+- API base URL: `https://api.exergyfactor.com/v1`
+- Keyless MCP endpoint: `https://api.exergyfactor.com/mcp/`
 
 The public-beta deployment does not require an API key. Results retain the
 package's units, reference conditions, basis, boundary, Fidelity Tier,
@@ -31,13 +32,13 @@ will build the Docker image from this directory and expose the health check at
 `/v1/health`. Free instances may sleep after inactivity and are intended for
 hobby or preview use; the calculator remains available without the hosted API.
 
-After a successful deployment, Render assigns the service a URL based on the
-service name. The expected URL is:
+The public custom domain is:
 
 ```text
-https://exergy-factor-api.onrender.com/v1
+https://api.exergyfactor.com/v1
 ```
 
-This URL is not live merely because the Blueprint is committed; it becomes
-available only after a Render workspace connects the repository and deploys the
-Free web service.
+The service is keyless during the public beta. The same image also serves the
+streamable HTTP MCP endpoint at `https://api.exergyfactor.com/mcp/` for agents.
+Free instances may sleep after inactivity, so the first request after idle time
+can take a few seconds while the service wakes.

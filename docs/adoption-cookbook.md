@@ -195,10 +195,9 @@ python -m pip install "quantity-and-quality[api]"
 quantity-quality serve-api
 ```
 
-The public Exergy Factor beta is keyless. The free Render service is not live
-until the repository's `render.yaml` Blueprint is connected to a Render
-workspace and deployed. Until then, the local service is the reliable smoke
-test:
+The public Exergy Factor API is keyless at
+`https://api.exergyfactor.com/v1`. A local service remains useful for
+development and deterministic smoke tests:
 
 ```bash
 curl http://127.0.0.1:8000/v1/health

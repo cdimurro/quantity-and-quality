@@ -286,10 +286,9 @@ GET  /v1/accounting/schema
 POST /v1/account
 ```
 
-The public Exergy Factor beta API is keyless and hosted separately from this
-package. The repository contains a free Render Blueprint, but a Render
-workspace must connect and deploy it before the URL is live. Until then, run
-the optional API locally:
+The public Exergy Factor API is keyless and hosted separately from this
+package at `https://api.exergyfactor.com/v1`. For a local deployment, run the
+optional API locally:
 
 ```bash
 quantity-quality serve-api
@@ -299,9 +298,7 @@ curl http://127.0.0.1:8000/v1/calculate \
   -d '{"stream_type":"heat","quantity":1,"unit":"MWh_th","source_c":80,"sink_c":20}'
 ```
 
-After deployment, replace the local base URL with the service URL shown by
-Render (the Blueprint service name is `exergy-factor-api`). The hosted-service
-terms and current availability notes are published at
+The hosted-service terms and current availability notes are published at
 [exergyfactor.com/terms.html](https://exergyfactor.com/terms.html). Free Render
 instances may sleep after inactivity. For production or private workloads,
 deploy the same container under your control.

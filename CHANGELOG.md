@@ -10,6 +10,15 @@
   example so the published package does not direct users to an unavailable
   endpoint.
 
+### Hosted API
+
+- Add branded interactive documentation with only the six public contract
+  routes in OpenAPI.
+- Enable the keyless streamable HTTP MCP endpoint at
+  `https://api.exergyfactor.com/mcp/`.
+- Include the optional CoolProp dependency in the hosted image so fluid and
+  humid-air calculations use the same contract as the library.
+
 ## 0.13.0 - 2026-08-18 - Cross-product conformance and web contracts
 
 ### Added
