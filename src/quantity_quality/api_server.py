@@ -732,7 +732,9 @@ def create_app() -> FastAPI:
         summary["records"] = cleaned
         return summary
 
-    @app.post("/v1/export/web-data", include_in_schema=False, dependencies=[Depends(_require_api_key)])
+    @app.post(
+        "/v1/export/web-data", include_in_schema=False, dependencies=[Depends(_require_api_key)]
+    )
     def export_web_data() -> dict:
         return build_web_data()
 

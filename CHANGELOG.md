@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.13.2 - 2026-08-21 - Public API and MCP release
+
+### Reliability
+
+- Make the public API and MCP dependencies part of the complete `all` extra so
+  CI exercises the same optional services that the hosted deployment exposes.
+- Format the API, CLI, and adoption modules so every supported Python version
+  passes the repository's formatting checks.
+
+### Packaging
+
+- Publish the current keyless API and MCP implementation, including the MCP
+  server module and its optional dependency metadata, in the package release.
+
 ## 0.13.1 - 2026-08-20 - Hosted API documentation correction
 
 ### Documentation

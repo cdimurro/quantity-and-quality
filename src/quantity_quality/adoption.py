@@ -37,6 +37,7 @@ def _example_notation(
     )
     return {"notation": record.notation, "full_notation": record.full_notation}
 
+
 COMMON_NOTATION_EXAMPLES: List[dict] = [
     {
         "name": "Grid electricity delivered",

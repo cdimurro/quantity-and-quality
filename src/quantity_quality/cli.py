@@ -196,7 +196,9 @@ def build_parser() -> argparse.ArgumentParser:
         "verify",
         help="Re-derive the Exergy Factor a record states, from its own declaration bracket.",
     )
-    verify.add_argument("notation", help='For example: "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"')
+    verify.add_argument(
+        "notation", help='For example: "1 MWh_th, fx = 0.170 [Th = 80 C, T0 = 20 C]"'
+    )
     verify.add_argument("--json", action="store_true", help="Emit JSON instead of text.")
     verify.set_defaults(func=cmd_verify)
 

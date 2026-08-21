@@ -27,10 +27,10 @@ assumptions, and warnings.
 
 The repository root contains a `render.yaml` Blueprint for a free Render web
 service. Connect this repository in Render with **New → Blueprint**, review the
-single `exergy-factor-api` web service, and deploy it on the Free plan. Render
-will build the Docker image from this directory and expose the health check at
-`/v1/health`. Free instances may sleep after inactivity and are intended for
-hobby or preview use; the calculator remains available without the hosted API.
+single `exergy-factor-api` web service, and deploy it on the selected plan.
+Render will build the Docker image from this directory and expose the health
+check at `/v1/health`. The service is intended for low-volume public use; the
+calculator remains available without the hosted API.
 
 The public custom domain is:
 
@@ -38,7 +38,5 @@ The public custom domain is:
 https://api.exergyfactor.com/v1
 ```
 
-The service is keyless during the public beta. The same image also serves the
-streamable HTTP MCP endpoint at `https://api.exergyfactor.com/mcp/` for agents.
-Free instances may sleep after inactivity, so the first request after idle time
-can take a few seconds while the service wakes.
+The service is keyless. The same image also serves the streamable HTTP MCP
+endpoint at `https://api.exergyfactor.com/mcp/` for agents.

@@ -299,8 +299,8 @@ curl http://127.0.0.1:8000/v1/calculate \
 ```
 
 The hosted-service terms and current availability notes are published at
-[exergyfactor.com/terms.html](https://exergyfactor.com/terms.html). Free Render
-instances may sleep after inactivity. For production or private workloads,
+[exergyfactor.com/terms.html](https://exergyfactor.com/terms.html). The public
+service is intended for low-volume use; for production or private workloads,
 deploy the same container under your control.
 
 Open <http://127.0.0.1:8000/docs> for interactive API documentation. Invalid
@@ -313,9 +313,9 @@ service. It serves a public, keyless API endpoint. Connect this repository in
 Render, apply the blueprint, add `api.exergyfactor.com` as a custom domain, and
 point the `api` CNAME at the target Render provides.
 
-Free hosting is suitable for a low-volume public preview; it can sleep when
-idle and has no durable local filesystem. Do not treat it as a high-availability
-or high-volume production service without adding durable storage and monitoring.
+Free hosting is suitable for a low-volume public service and has no durable
+local filesystem. Do not treat it as a high-availability or high-volume
+production service without adding durable storage and monitoring.
 
 ### Keyless MCP server
 

@@ -1,6 +1,6 @@
 """Quantity plus Exergy Factor reporting helpers."""
 
-__version__ = "0.13.1"
+__version__ = "0.13.2"
 
 from .accounting import (
     ENERGY_ACCOUNTING_METHODS,
