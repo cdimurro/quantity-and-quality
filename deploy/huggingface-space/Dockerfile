@@ -15,7 +15,7 @@ WORKDIR /home/user/app
 
 RUN python -m pip install --no-cache-dir --upgrade pip \
     && python -m pip install --no-cache-dir \
-      "quantity-and-quality[api,mcp,fluids] @ https://github.com/cdimurro/quantity-and-quality/archive/refs/heads/main.tar.gz"
+      "quantity-and-quality[api,mcp,fluids]==0.13.2"
 
 COPY --chown=user app.py /home/user/app/app.py
 
