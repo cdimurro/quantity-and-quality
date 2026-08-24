@@ -1,8 +1,8 @@
 # Quantity and Quality
 
+[![CI](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml/badge.svg)](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/quantity-and-quality.svg)](https://pypi.org/project/quantity-and-quality/)
 [![Python](https://img.shields.io/pypi/pyversions/quantity-and-quality.svg)](https://pypi.org/project/quantity-and-quality/)
-[![CI](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml/badge.svg)](https://github.com/cdimurro/quantity-and-quality/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 A small Python library and CLI for calculating and reporting the **energy
@@ -411,7 +411,6 @@ cases in CI. The web export also publishes the source package version and hash.
 | [Dataset compatibility](docs/dataset-compatibility.md) | Energy-balance stages, substitution accounting, and external datasets |
 | [Numerical validation](docs/validation.md) | Equations, benchmarks, real-data fixtures, tolerances, and limits |
 | [Canonical paper](paper/quantity-and-quality-standard-reporting-framework.pdf) | Framework, derivation, application, and evidence |
-| [Contributing](CONTRIBUTING.md) | Development setup and contribution standards |
 
 ## Project Boundary
 
@@ -421,11 +420,7 @@ economics; The Exergy Imperative consumes this layer for those downstream
 decisions. Exergy Factor is the simple public acquisition and calculator
 surface over the same reference data.
 
-## Contributing, Citation, and License
-
-Corrections to published numbers, sourced reference examples, documentation
-improvements, and real-dataset adoption reports are welcome. See
-[CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md).
+## Citation and License
 
 Machine-readable citation metadata is in [CITATION.cff](CITATION.cff). GitHub
 also renders it through **Cite this repository** in the repository sidebar.
