@@ -1,6 +1,6 @@
 import pytest
 
-pytest.importorskip("mcp")
+pytest.importorskip("mcp.server.fastmcp")
 
 from quantity_quality.mcp_server import create_mcp_server
 

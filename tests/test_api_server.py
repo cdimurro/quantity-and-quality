@@ -295,7 +295,7 @@ def test_stateless_api_keys_survive_ephemeral_restart(monkeypatch, tmp_path):
 
 
 def test_optional_keyless_mcp_http_mount(monkeypatch):
-    pytest.importorskip("mcp")
+    pytest.importorskip("mcp.server.fastmcp")
     monkeypatch.setenv("QQ_MCP_HTTP_ENABLED", "1")
     with TestClient(create_app()) as client:
         assert any(getattr(route, "path", "") == "/mcp" for route in client.app.routes)
