@@ -1,6 +1,6 @@
 """Quantity plus Exergy Factor reporting helpers."""
 
-__version__ = "0.13.2"
+__version__ = "0.13.3"
 
 from .accounting import (
     ENERGY_ACCOUNTING_METHODS,
@@ -177,6 +177,11 @@ from .reference import (
     get_reference_example,
     load_reference_examples,
 )
+from .reference_assessment import (
+    FULL_REFERENCE_FIELDS,
+    REFERENCE_ASSESSMENT_SCHEMA_VERSION,
+    assess_exergy_reference,
+)
 from .registry import (
     CARRIER_REGISTRY_VERSION,
     CORE_CARRIER_REGISTRY,
@@ -242,6 +247,9 @@ from .web_export import (
 )
 
 __all__ = [
+    "FULL_REFERENCE_FIELDS",
+    "REFERENCE_ASSESSMENT_SCHEMA_VERSION",
+    "assess_exergy_reference",
     "ADOPTION_FIELDS",
     "ENERGY_ACCOUNTING_SCHEMA_ID",
     "ENERGY_ACCOUNTING_SCHEMA_VERSION",

@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.13.3 - 2026-10-10 - Reference metadata assessment
+
+- Add `assess_exergy_reference` and its packaged JSON Schema as a dependency-free,
+  read-only reporting API. Retain partial reference declarations and explicitly
+  withhold a closed physical-exergy status even when the full tuple is present.
+- Add regression controls for the 20-record audit's reference patterns, invalid
+  declarations, serialization, independent copies and attempted self-promotion.
+- Preserve existing model calculations, fidelity tiers and conformance data.
+- See [reference assessment](docs/reference-assessment.md) for the scope.
+
 ## 0.13.2 - 2026-08-21 - Public API and MCP release
 
 ### Reliability
